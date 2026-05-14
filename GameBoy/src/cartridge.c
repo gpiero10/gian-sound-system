@@ -1,5 +1,6 @@
 #include "cartridge.h"
-#define romSizeCalc(x) ((1 <<15) << x)
+
+cartridge_t cartucho;
 
 const License licenses[] = {
     {"00", "None"},
@@ -275,9 +276,9 @@ int headerRead(char* buffer, header_t* cabezal)
     return 0;
 }
 
-uint8_t cartridge(rom_t* juego)
+uint8_t cartridge(cartridge_t* cartucho)
 {   
-    FILE* rom = fopen(juego->gamePath, "rb");
+    FILE* rom = fopen(cartucho->gamePath, "rb");
     
     if (!rom) 
     {
@@ -292,27 +293,155 @@ uint8_t cartridge(rom_t* juego)
 
     header_t cabezal;
     headerRead(buffer, &cabezal);
-    juego->header = cabezal;
-    juego->cantidadDeBancos = (1 << (juego->header.romSize));
-    
+    cartucho->header = cabezal;
+    cartucho->cantidadDeBancosROM = numberOfROMBanks(cartucho->header.romSize);
+    cartucho->activeBankROM = 1; // Predeterminado el primero
+
+    cartridgeType(cartucho); // Defino que tipo de cartucho es
+    cantidadDeBancosDeExtRAM(cartucho); // Bastante declarativo
+
     //Pido memo para todo el rom (.gb)
-    uint32_t tamañoRom = romSizeCalc(juego->header.romSize);
-    juego->data = malloc(tamañoRom);
+    uint32_t tamañoRom = romSizeCalc(cartucho->header.romSize);
+    cartucho->romData = malloc(tamañoRom);
     
-    //cargo el rom en la memo del struct que representa al juego
+    //cargo el rom en la memo del struct que representa al cartucho
     fseek(rom, 0, SEEK_SET);
-    fread(juego->data, 1, tamañoRom, rom);
+    fread(cartucho->romData, 1, tamañoRom, rom);
     fclose(rom);
 
     return 0;
 }
 
-int main(int argc, char** argv)
-{   
-    rom_t juego;
-    juego.gamePath = argv[1];
-    
-    cartridge(&juego);
+void cantidadDeBancosDeExtRAM(cartridge_t *cartucho)
+{
+    // Code	SRAM size	Comment
+    // $00	0	        No RAM
+    // $01	–	        Unused 14
+    // $02	8 KiB	    1 bank
+    // $03	32 KiB	    4 banks of 8 KiB each
+    // $04	128 KiB	    16 banks of 8 KiB each
+    // $05	64 KiB	    8 banks of 8 KiB each
 
-    return 0;
+    switch (cartucho->header.ramSize)
+    {
+    case 0x00:
+        cartucho->cantidadDeBancosDeRam = 0;
+        break;
+    case 0x02:
+        cartucho->cantidadDeBancosDeRam = 1;
+        break;
+    case 0x03:
+        cartucho->cantidadDeBancosDeRam = 4;
+        break;
+    case 0x04:
+        cartucho->cantidadDeBancosDeRam = 16;
+        break;
+    case 0x05:
+        cartucho->cantidadDeBancosDeRam = 8;
+        break;
+    default:
+        break;
+    }
+}
+
+void cartridgeType(cartridge_t *cartucho)
+{
+    // Veo si hay Ram externa, MBC y demas
+    // 0147 — Cartridge type
+    // This byte indicates what kind of hardware is present on the cartridge — most notably its mapper.
+
+    // Code	Type
+    // $00	ROM ONLY
+    // $01	MBC1
+    // $02	MBC1+RAM
+    // $03	MBC1+RAM+BATTERY
+
+    // $08	ROM+RAM 11
+    // $09	ROM+RAM+BATTERY 11
+    // "ignoro el resto"
+
+    // default
+    cartucho->mbcPresent = 0;
+    cartucho->externalRamPresent = 0;
+    // casos
+    switch (cartucho->header.cartridgeType)
+    {
+        case 0x00:
+            break;
+
+        case 0x01:
+            cartucho->mbcPresent = 1;
+            break;
+
+        case 0x02:
+            cartucho->mbcPresent = 1;
+            cartucho->externalRamPresent = 1;
+            break;
+
+        case 0x03:
+            cartucho->mbcPresent = 1;
+            cartucho->externalRamPresent = 1;
+            break;
+
+        case 0x08:
+            cartucho->externalRamPresent = 1;
+            break;
+
+        case 0x09:
+            cartucho->externalRamPresent = 1;
+            break;
+
+        default:
+            break;
+    }
+}
+
+uint8_t readCartridge(uint16_t addr)
+{
+    if (0x0 <= addr < 0x4000) //Banco 0
+    {
+        return cartucho.romData[addr];
+    }
+    else if(0x4000 <= addr <= 0x7FFF)// Banco N ("intercambiable") 
+    {
+        // caso de cartucho con MBC
+        uint16_t bankOffset = (cartucho.activeBankROM - 1)*(1<<14);
+        return cartucho.romData[bankOffset + addr];
+    }
+    else if(0xA000 <= addr <= 0xBFFF) //dir extRam, if any (8kib)
+    {
+        if (cartucho.externalRamPresent == 1)
+        {
+            uint16_t bankOffset = (cartucho.activeBankRAM - 1)*(1<<13);
+            return cartucho.romData[bankOffset + addr - 0xA000];
+        }
+    }
+    return -1;
+}
+
+void writeCartridge(uint16_t addr, uint8_t value)
+{
+    if (0x0 <= addr <= 0x7FFF) // Direccion de ROM
+    {
+        // No se puede escribir en ROM pero, se configura el MBC en caso de haberlo
+    }
+    else if(0xA000 <= addr <= 0xBFFF) //dir extRam, if any (8kib)
+    {
+        if (cartucho.externalRamPresent == 1)
+        {
+            uint16_t bankOffset = (cartucho.activeBankRAM - 1)*(1<<13);
+            cartucho.romData[bankOffset + addr - 0xA000] = value;
+        }
+    }
+    return;
+}
+
+cartridge_t* initCartridge(char* gameROM)
+{
+    memset(&cartucho, 0, sizeof(cartridge_t));
+    cartucho.gamePath = gameROM;
+    
+    cartridge(&cartucho);
+
+    return &cartucho;
 }

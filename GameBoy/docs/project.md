@@ -46,6 +46,17 @@ GameBoy/
 │   └── diseño.md
 ```
 
+```
+CPU
+ ↓
+BUS  ← (decide a dónde ir)
+ ↓
+ ├── Cartridge
+ ├── PPU (VRAM + OAM + restricciones)
+ ├── WRAM
+ ├── IO
+ └── HRAM
+```
 ---
 
 ## 🔥 3. Orden recomendado de implementación
