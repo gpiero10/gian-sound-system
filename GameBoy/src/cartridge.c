@@ -413,7 +413,7 @@ uint8_t readCartridge(uint16_t addr)
         if (cartucho.externalRamPresent == 1)
         {
             uint16_t bankOffset = (cartucho.activeBankRAM - 1)*(1<<13);
-            return cartucho.romData[bankOffset + addr - 0xA000];
+            return cartucho.ramData[bankOffset + addr - 0xA000];
         }
     }
     return -1;

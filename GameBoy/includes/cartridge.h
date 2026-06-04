@@ -41,22 +41,6 @@ typedef struct Cartucho
     uint8_t mbcPresent; // 1 o 0 dependiendo del header.cartridgetype
 } cartridge_t;
 
-
-extern const License licenses[];
-extern const char* oldLicenses[256];
-
-const char* getNewPublisher(const char* code);
-
-int headerRead(char* buffer, header_t* cabezal);
-
-uint8_t cartridge(cartridge_t *cartucho);
-
-void cantidadDeBancosDeExtRAM(cartridge_t *cartucho);
-
-void cartridgeType(cartridge_t *cartucho);
-
 uint8_t readCartridge(uint16_t addr);
-
 void writeCartridge(uint16_t addr, uint8_t value);
-
 cartridge_t* initCartridge(char* gameROM);

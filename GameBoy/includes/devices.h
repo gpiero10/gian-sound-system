@@ -1,8 +1,3 @@
-#include "commons.h"
-#include "cartridge.h"
-
-#define ochoBitsBajos(x) (x & 0x11)
-
 // 0000	3FFF	16 KiB ROM bank 00	From cartridge, usually a fixed bank
 // 4000	7FFF	16 KiB ROM Bank 01–NN	From cartridge, switchable bank via mapper (if any)
 // 8000	9FFF	8 KiB Video RAM (VRAM)	In CGB mode, switchable bank 0/1
@@ -16,6 +11,58 @@
 // FF80	FFFE	High RAM (HRAM)	
 // FFFF	FFFF	Interrupt Enable register (IE)
 
+#include "commons.h"
+#include "cartridge.h"
+
+#define cartridgeStart 0x0
+#define cartridgeEnd 0x7FFF
+#define cartridgeRange(x) (between(cartridgeStart, cartridgeEnd, x))
+#define cartridgeId 0
+
+#define vramStart 0x8000
+#define vramEnd 0x9FFF
+#define vramRange(x) (between(vramStart, vramEnd, x))
+#define vramId 1
+
+#define extRAMStart 0xA000
+#define extRAMEnd 0xBFFF
+#define extRAMRange(x) (between(extRAMStart, extRAMEnd, x))
+#define extRAMId 2
+
+#define workRAMStart 0xC000
+#define workRAMEnd 0xDFFF
+#define workRAMRange(x) (between(workRAMStart, workRAMEnd, x))
+#define workRAMId 3
+
+#define oamStart 0xFE00
+#define oamEnd 0xFE9F
+#define oamRange(x) (between(oamStart, oamEnd, x))
+#define oamId 4
+
+#define ioRegistersStart 0xFF00
+#define ioRegistersEnd 0xFF7F
+#define ioRegistersRange(x) (between(ioRegistersStart, ioRegistersEnd, x))
+#define ioRegsId 5
+
+#define hramStart 0xFF80
+#define hramEnd 0xFFFE
+#define hramRange(x) (between(hramStart, hramEnd, x))
+#define hramId 6
+
+#define ieRegisterAddr 0xFFFF
+#define ieRegsId 7
+
+#define cantDevices 8
+
+typedef struct devices
+{
+    /* Interfaz de dispositivo */
+    bool (*enRango)(u16); // Determina si un address pertenece al espacio de deirecciones asignado al device
+    u8 (*read)(u16); // leer dato
+    void (*write)(u16, u8); // escribir dato
+    void* ctx; //contexto, struct del dispositivo especifico
+} device_t;
+
 typedef struct OAM
 {
     // Tabla de 40 entradas de 4 bytes, donde cada entrada es un sprite
@@ -24,7 +71,7 @@ typedef struct OAM
 
 typedef struct
 {
-    uint8_t data[eigthKB]; //(8 kib)
+    u8 data[eigthKB]; //(8 kib)
 } vram_t;
 
 typedef struct
@@ -45,8 +92,8 @@ typedef struct
     // $FF04	$FF07	DMG	Timer and divider
     uint8_t timerAndDivider[4];
 
-    // $FF0F		    DMG	Interrupts
-    uint8_t interrupts;
+    // $FF0F		    DMG	Interrupts      
+    uint8_t interrupts; //  IF	Interrupt flag	R/W	All
 
     // $FF10	$FF26	DMG	Audio
     uint8_t audio[23];
@@ -93,44 +140,9 @@ typedef struct HRAM
 
 typedef struct InterruptEnableRegister
 {
-    uint8_t registerControl;
+    uint8_t registerControl; // $FFFF	IE	Interrupt enable	R/W	All
 } IEregister_t;
 
-typedef struct Memory
-{
-    cartridge_t* cartucho;
-    vram_t vram;
-    workRam_t workRam;
-    OAM_t oamTableOfSprites;  
-    IORegisters_t IORegisters;
-    hram_t HRam;
-    IEregister_t interruptControl;
-
-    uint8_t dmaTransferState; // 1 si hay una transferencia DMA-OAM activa (entonces ademas solo se puede usar la Hram), 0 si no.
-
-} memory_t;
-
-//uint8_t read(uint16_t addr);
-uint8_t dmaTransferState();
-uint8_t buscarRegistroYLeerByte(uint16_t addr);
-void write(uint16_t addr, uint8_t val);
-void buscarRegistroYEscribirByte(uint16_t addr, uint8_t val);
-void dmaOamTransferBegins();
-void initMemory(char* gameROMFilePath);
-
- 
-// uint8_t readCartridge(uint16_t addr); en cartridge.c
-uint8_t readVRAM(uint16_t addr);
-uint8_t readWorkRam(uint16_t addr);
-uint8_t readOAM(uint16_t addr);
-uint8_t readRegister(uint16_t addr);
-uint8_t readHRam(uint16_t addr);
-uint8_t readInterruptRegisterControl();
-
-// void writeCartridge(uint16_t addr, uint8_t val); en cartridge.c
-void writeVRAM(uint16_t addr, uint8_t val);
-void writeWorkRam(uint16_t addr, uint8_t val);
-void writeOAM(uint16_t addr, uint8_t val);
-void writeRegister(uint16_t addr, uint8_t val);
-void writeHRam(uint16_t addr, uint8_t val);
-void writeInterruptRegisterControl(uint8_t val);
+device_t* getDeviceByIndex(u8 i);
+void dmaOamTransfer(u8 hAddr);
+u8 getDMATransferState();
