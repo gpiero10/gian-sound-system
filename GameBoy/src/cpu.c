@@ -1,5 +1,5 @@
 #include <cpu.h>
-// Implementacion Antigua
+
 cpu_context cpu_ctx;
 
 void cpu_init()
@@ -89,6 +89,8 @@ void cpuStep()
         cpuFetch();
 
         // Execute
+        in_proc processor = getProcessorForCurrentInst(&cpu_ctx);
+        processor(&cpu_ctx);
         // cpuProc();
 
     }
@@ -100,6 +102,7 @@ void cpuStep()
 
 void cpu_halted()
 {
+    // TO DO...// 
     u8 ifRegister = busRead(0xFF0F); 
     u8 ieRegister = busRead(0xFFFF);
     u8 andi = ifRegister & ieRegister;
@@ -111,9 +114,9 @@ void cpu_halted()
         andi = ifRegister & ieRegister;
     }
 
+    
     // si alguna interrupcion pide ser atendida y ademas se permite el handleo, se termina el halt
     cpu_ctx.halted = false;
-
     interrputHandling();
 
 }

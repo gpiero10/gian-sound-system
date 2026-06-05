@@ -51,6 +51,8 @@ typedef struct cpuContext
 
 } cpu_context;
 
+typedef void (*in_proc)(cpu_context*); // El tipo de las funciones processors
+in_proc getProcessorForCurrentInst(cpu_context* ctx);
 
 u16 readCPURegister(reg_type rt);
 void writeCPURegister(reg_type rt, u16 val);

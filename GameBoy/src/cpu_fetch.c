@@ -40,7 +40,7 @@ void cpuFetch()
             break;
     
         case AM_R_D8:
-            cpu_ctx.fetched_data = busRead8(cpu_ctx.registers.pc ++);
+            cpu_ctx.fetched_data = busRead(cpu_ctx.registers.pc ++);
             break;
     
         case AM_R_MR:
@@ -51,29 +51,35 @@ void cpuFetch()
                 addr |= 0xFF00;
             }
 
-            cpu_ctx.fetched_data = busRead8(addr);
+            cpu_ctx.fetched_data = busRead(addr);
             break;
     
         case AM_R_HLI:
-            u16 hli = readCPURegister(cpu_ctx.currentInstruction->reg_2) + 1;
-            cpu_ctx.fetched_data = busRead8(hli);
+            u16 hl = readCPURegister(RT_HL);
+            cpu_ctx.fetched_data = busRead(hl);
+            writeCPURegister(RT_HL, hl + 1);
             break;
 
         case AM_R_HLD:
-            u16 hld = readCPURegister(cpu_ctx.currentInstruction->reg_2) - 1;
-            cpu_ctx.fetched_data = busRead8(hld);
+            u16 hl = readCPURegister(RT_HL);
+            cpu_ctx.fetched_data = busRead(hl);
+            writeCPURegister(RT_HL, hl - 1);
             break;
 
         case AM_HLI_R:
+            u16 hl = readCPURegister(RT_HL); 
             cpu_ctx.dest_is_mem = true;
-            cpu_ctx.mem_dest = readCPURegister(cpu_ctx.currentInstruction->reg_1) + 1;            
+            cpu_ctx.mem_dest = hl;            
             cpu_ctx.fetched_data = readCPURegister(cpu_ctx.currentInstruction->reg_2);
+            writeCPURegister(RT_HL, hl + 1);
             break;
 
         case AM_HLD_R:
+            u16 hl = readCPURegister(RT_HL);
             cpu_ctx.dest_is_mem = true;
-            cpu_ctx.mem_dest = readCPURegister(cpu_ctx.currentInstruction->reg_1) - 1;            
+            cpu_ctx.mem_dest = hl;            
             cpu_ctx.fetched_data = readCPURegister(cpu_ctx.currentInstruction->reg_2);
+            writeCPURegister(RT_HL, hl - 1);
             break;
 
         case AM_R_A8:
@@ -134,4 +140,6 @@ void cpuFetch()
         default:
             break;
     }
+
 } 
+

@@ -4,7 +4,7 @@
 static bool is16BitsRegister(reg_type rt) {return rt >= RT_AF;}
 static bool is8BitsRegister(reg_type rt) {return between(RT_A, RT_L, rt);}
 
-void setFlag(cpu_context* ctx, flag_t f, u8 val)
+void setFlag(cpu_context* ctx, flag_t f, i8 val)
 {
     // Bit	Name	Explanation
     // 7	z	Zero flag
@@ -98,7 +98,7 @@ void checkHalfCarryFlag8Bits(u8 sum1, u8 sum2, cpu_context * ctx)
 void checkZeroFlag8Bits(u8 suma, cpu_context *ctx)
 {
     u8 zeroFlag = suma == 0 ? 1 : 0;
-    setFlag(ctx, F_CARRY, zeroFlag);
+    setFlag(ctx, F_ZERO, zeroFlag);
 }
 void checkCarryFlag8Bits(u16 suma, cpu_context *ctx)
 {
@@ -143,7 +143,7 @@ void proc_ld(cpu_context* ctx)
 
 void proc_jr(cpu_context* ctx)
 {
-    int8_t relativeJump = ctx->fetched_data;
+    i8 relativeJump = ctx->fetched_data;
     switch (ctx->currentInstruction->cond)
     {
         case CT_NONE:
@@ -245,27 +245,36 @@ void proc_jp(cpu_context* ctx)
 
 void proc_inc(cpu_context* ctx)
 {
-    u8 val;
-    u8 src;
-    bool halfCarry;
-
+    // INC r8, INC [HL], INC r16, INC SP
+    u16 val;
+    u16 src;
     if (ctx->dest_is_mem)
     {
         src = busRead(ctx->mem_dest); 
         val = src + 1;
-        busWrite(ctx->mem_dest, val);
+        busWrite(ctx->mem_dest, (u8)val);
     }
     else
     {
         src = readCPURegister(ctx->currentInstruction->reg_1);
         val = src + 1;
-        writeCPURegister(ctx->currentInstruction->reg_1, val);
+        if (is16BitsRegister(ctx->currentInstruction->reg_1))
+        {
+            writeCPURegister(ctx->currentInstruction->reg_1, val);
+        }
+        else
+        {
+            writeCPURegister(ctx->currentInstruction->reg_1, (u8)val);
+        }
     }
     
     // Flags
-    checkZeroFlag8Bits(val, ctx);
-    setFlag(ctx, F_N_Subtract, 0);
-    checkHalfCarryFlag8Bits(src, 1, ctx);
+    if (!is16BitsRegister(ctx->currentInstruction->reg_1))
+    {
+        checkZeroFlag8Bits((u8)val, ctx);
+        setFlag(ctx, F_N_Subtract, 0);
+        checkHalfCarryFlag8Bits((u8)src, 1, ctx);
+    }
 }
 
 void proc_dec(cpu_context* ctx)
@@ -324,10 +333,14 @@ void proc_add(cpu_context* ctx)
     // ADD SP,e8
     
     u16 dstVal = readCPURegister(ctx->currentInstruction->reg_1);
-    u16 suma = dstVal + ctx->fetched_data;
+    u16 suma;
+    
+    if (ctx->currentInstruction->reg_1 == RT_SP)
+    { suma = dstVal + (i8)ctx->fetched_data; }
+    else { suma = dstVal + ctx->fetched_data; }
     
     writeCPURegister(ctx->currentInstruction->reg_1, suma);
-    
+
     // FLAGS
     if (is16BitsRegister(ctx->currentInstruction->reg_1))
     {
@@ -341,7 +354,7 @@ void proc_add(cpu_context* ctx)
             u8 halfCarry = (((dstVal & 0xFFF) + (ctx->fetched_data & 0xFFF)) > 0xFFF) ? 1:0;
             setFlag(ctx, F_HalfCarry, halfCarry);
             
-            u8 carryWord = ((dstVal + ctx->fetched_data) > 0xFFFF) ? 1:0;
+            u8 carryWord = (((u32)dstVal + (u32)ctx->fetched_data) > 0xFFFF) ? 1:0;
             setFlag(ctx, F_CARRY, carryWord);
 
             break;
@@ -355,7 +368,7 @@ void proc_add(cpu_context* ctx)
 
             // flags
             checkCarryFlag8Bits(suma, ctx);
-            checkHalfCarryFlag8Bits(dstVal, ctx->fetched_data, ctx);
+            checkHalfCarryFlag8Bits(dstVal, (i8)ctx->fetched_data, ctx);
 
             setFlag(ctx, F_ZERO, 0);
             break;
@@ -385,6 +398,7 @@ void proc_sub(cpu_context* ctx)
     checkZeroFlag8Bits(resta, ctx);
     checkBorrow8Bits(dst, ctx->fetched_data, ctx);
     checkHalfBorrow8Bits(dst, ctx->fetched_data, ctx);
+    setFlag(ctx, F_N_Subtract, 1);
 }
 
 void proc_rrca(cpu_context* ctx)
@@ -477,8 +491,8 @@ void proc_daa(cpu_context* ctx)
     else
     {
 
-        if (hcFlag || (regA & 0xF > 0x9)) {adjustement += 0x6;}
-        if (cFlag || regA > 0x99) {adjustement += 0x60; setFlag(ctx, F_CARRY, 1);}
+        if (hcFlag || ((regA & 0xF) > 0x9)) {adjustement += 0x6;}
+        if (cFlag || (regA > 0x99)) {adjustement += 0x60; setFlag(ctx, F_CARRY, 1);}
         newA = regA + adjustement;
         writeCPURegister(RT_A, newA);
     }
@@ -876,7 +890,7 @@ void proc_rlc(cpu_context *ctx)
         //             └─────────────────────┘
         byte = ctx->fetched_data;
         carry = bit7(byte);
-        byte = byte << 1;
+        byte = (byte << 1) | carry;
 
         busWrite(ctx->mem_dest, byte);
     }
@@ -884,7 +898,7 @@ void proc_rlc(cpu_context *ctx)
     {
         byte = readCPURegister(ctx->currentInstruction->reg_1);
         carry = bit7(byte);
-        byte = byte << 1;              
+        byte = (byte << 1) | carry;              
         
         writeCPURegister(ctx->currentInstruction->reg_1, byte);
     }
@@ -908,7 +922,7 @@ void proc_rrc(cpu_context *ctx)
     {
         byte = ctx->fetched_data;
         carry = byte & 0x01;
-        byte = byte >> 1;
+        byte = (byte >> 1) | (carry << 7);
 
         busWrite(ctx->mem_dest, byte);
     }
@@ -916,7 +930,7 @@ void proc_rrc(cpu_context *ctx)
     {
         byte = readCPURegister(ctx->currentInstruction->reg_1);
         carry = byte & 0x01;
-        byte = byte >> 1;              
+        byte = (byte >> 1) | (carry << 7);              
         
         writeCPURegister(ctx->currentInstruction->reg_1, byte);
     }
@@ -1071,6 +1085,7 @@ void proc_swap(cpu_context *ctx)
         u8 upper = (ctx->fetched_data & 0xF0) >> 4;
         u8 lower = ctx->fetched_data & 0x0F;
         inv = lower << 4 | upper;
+        busWrite(ctx->mem_dest, inv);
     }
     else
     {
@@ -1078,6 +1093,7 @@ void proc_swap(cpu_context *ctx)
         u8 upper = (reg & 0xF0) >> 4;
         u8 lower = reg & 0x0F;
         inv = lower << 4 | upper;
+        writeCPURegister(ctx->currentInstruction->reg_1, inv);
     }
     
     // Flags
@@ -1184,8 +1200,60 @@ void proc_set(cpu_context *ctx)
     // No flags affected
 }
 
-void processorByInstructionType(cpu_context *ctx)
+in_proc getProcessorForCurrentInst(cpu_context* ctx)
 {
-    // Here im gonna do the table association of instruction-proc_instruction
-    
+    return processorByInstructionTypeTable[ctx->currentInstruction->type];
 }
+
+in_proc processorByInstructionTypeTable[48] = 
+{
+    //[IN_NONE] = 0x0,
+    [IN_NOP] = proc_nop,
+    [IN_LD] = proc_ld,
+    [IN_INC] = proc_inc,
+    [IN_DEC] = proc_dec,
+    [IN_RLCA] = proc_rlca,
+    [IN_ADD] = proc_add,
+    [IN_RRCA] = proc_rrca,
+    [IN_STOP] = proc_stop,
+    [IN_RLA] = proc_rla,
+    [IN_JR] = proc_jr,
+    [IN_RRA] = proc_rra,
+    [IN_DAA] = proc_daa,
+    [IN_CPL] = proc_cpl,
+    [IN_SCF] = proc_scf,
+    [IN_CCF] = proc_ccf,
+    [IN_HALT] = proc_halt,
+    [IN_ADC] = proc_adc,
+    [IN_SUB] = proc_sub,
+    [IN_SBC] = proc_sbc,
+    [IN_AND] = proc_and,
+    [IN_XOR] = proc_xor,
+    [IN_OR] = proc_or,
+    [IN_CP] = proc_cp,
+    [IN_POP] = proc_pop,
+    [IN_JP] = proc_jp,
+    [IN_PUSH] = proc_push,
+    [IN_RET] = proc_ret,
+    [IN_CB] = proc_cb,
+    [IN_CALL] = proc_call,
+    [IN_RETI] = proc_reti,
+    [IN_LDH] = proc_ldh,
+    [IN_JPHL] = proc_jphl,
+    [IN_DI] = proc_di,
+    [IN_EI] = proc_ei,
+    [IN_RST] = proc_rst,
+    [IN_ERR] = proc_err,
+    //CB instructions...
+    [IN_RLC] = proc_rlc, 
+    [IN_RRC] = proc_rrc,
+    [IN_RL] = proc_rl, 
+    [IN_RR] = proc_rr,
+    [IN_SLA] = proc_sla, 
+    [IN_SRA] = proc_sra,
+    [IN_SWAP] = proc_swap, 
+    [IN_SRL] = proc_srl,
+    [IN_BIT] = proc_bit, 
+    [IN_RES] = proc_res,
+    [IN_SET] = proc_set,
+};

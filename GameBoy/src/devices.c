@@ -345,15 +345,9 @@ void writeInterruptRegisterControl(u8 val)
 
 // En rango Devices
 bool enRangoCartucho(u16 addr) { return cartridgeRange(addr) || extRAMRange(addr);}
-
 bool enRangoVRAM(u16 addr) { return vramRange(addr);}
-
 bool enRangoWRAM(u16 addr) { return workRAMRange(addr);}
-
 bool enRangoOAM(u16 addr) { return oamRange(addr);}
-
 bool enRangoIORegisters(u16 addr) { return ioRegistersRange(addr);}
-
 bool enRangoHRAM(u16 addr) { return hramRange(addr);}
-
 bool enRangoIEReg(u16 addr) { return addr == ieRegisterAddr;}
