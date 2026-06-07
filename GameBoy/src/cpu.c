@@ -114,7 +114,6 @@ void cpu_halted()
         andi = ifRegister & ieRegister;
     }
 
-    
     // si alguna interrupcion pide ser atendida y ademas se permite el handleo, se termina el halt
     cpu_ctx.halted = false;
     interrputHandling();
