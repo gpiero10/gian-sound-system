@@ -1,3 +1,5 @@
+#pragma once
+
 #include <commons.h>
 
 // Me inspire de rockytriton (copypaste bien bestia)

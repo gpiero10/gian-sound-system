@@ -10,6 +10,7 @@
 // FF00	FF7F	I/O Registers	
 // FF80	FFFE	High RAM (HRAM)	
 // FFFF	FFFF	Interrupt Enable register (IE)
+#pragma once
 
 #include "commons.h"
 #include "cartridge.h"
@@ -27,32 +28,31 @@
 #define extRAMStart 0xA000
 #define extRAMEnd 0xBFFF
 #define extRAMRange(x) (between(extRAMStart, extRAMEnd, x))
-#define extRAMId 2
 
 #define workRAMStart 0xC000
 #define workRAMEnd 0xDFFF
 #define workRAMRange(x) (between(workRAMStart, workRAMEnd, x))
-#define workRAMId 3
+#define workRAMId 2
 
 #define oamStart 0xFE00
 #define oamEnd 0xFE9F
 #define oamRange(x) (between(oamStart, oamEnd, x))
-#define oamId 4
+#define oamId 3
 
 #define ioRegistersStart 0xFF00
 #define ioRegistersEnd 0xFF7F
 #define ioRegistersRange(x) (between(ioRegistersStart, ioRegistersEnd, x))
-#define ioRegsId 5
+#define ioRegsId 4
 
 #define hramStart 0xFF80
 #define hramEnd 0xFFFE
 #define hramRange(x) (between(hramStart, hramEnd, x))
-#define hramId 6
+#define hramId 5
 
 #define ieRegisterAddr 0xFFFF
-#define ieRegsId 7
+#define ieRegsId 6
 
-#define cantDevices 8
+#define cantDevices 7
 
 typedef struct devices
 {
@@ -76,8 +76,8 @@ typedef struct
 
 typedef struct
 {
-    uint8_t data[eigthKB];
-    uint8_t cantidadDeBancos; //Hasta 8 en cgb mode (0 y 1-7 switcheables)
+    u8 data[eigthKB];
+    u8 cantidadDeBancos; //Hasta 8 en cgb mode (0 y 1-7 switcheables)
     
 } workRam_t;
 
@@ -142,6 +142,8 @@ typedef struct InterruptEnableRegister
 {
     uint8_t registerControl; // $FFFF	IE	Interrupt enable	R/W	All
 } IEregister_t;
+
+void init_Devices(char* gameROMFilePath);
 
 device_t* getDeviceByIndex(u8 i);
 void dmaOamTransfer(u8 hAddr);

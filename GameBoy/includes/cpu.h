@@ -1,3 +1,5 @@
+#pragma once
+
 #include <commons.h>
 #include <bus.h>
 #include <instrucciones.h>
@@ -56,4 +58,8 @@ in_proc getProcessorForCurrentInst(cpu_context* ctx);
 
 u16 readCPURegister(reg_type rt);
 void writeCPURegister(reg_type rt, u16 val);
+
+void cpu_init();
 void cpuFetch();
+void cpuStep();
+

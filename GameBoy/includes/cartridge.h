@@ -1,3 +1,5 @@
+#pragma once
+
 #include "commons.h"
 #define romSizeCalc(x) ((1 <<15) << x)
 #define numberOfROMBanks(x) (1 << x)
@@ -44,3 +46,5 @@ typedef struct Cartucho
 uint8_t readCartridge(uint16_t addr);
 void writeCartridge(uint16_t addr, uint8_t value);
 cartridge_t* initCartridge(char* gameROM);
+
+extern u8 romTest[0x8000];

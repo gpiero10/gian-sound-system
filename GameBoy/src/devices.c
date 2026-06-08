@@ -3,76 +3,6 @@
 device_t* devices[cantDevices];
 u8 dmaTransferActive;
 
-// Inicializar all devices para un ROM dado
-void init_Devices(char* gameROMFilePath)
-{
-    dmaTransferActive = false;
-    memset(&devices, 0, sizeof(device_t) * cantDevices);
-    
-    // cartridge_t* cartucho;
-    cartridge_t* cartucho = initCartridge(gameROMFilePath);
-    device_t cartridge;
-    cartridge.ctx = cartucho;
-    cartridge.read = readCartridge;
-    cartridge.write = writeCartridge;
-    cartridge.enRango = enRangoCartucho;
-    devices[cartridgeId] = &cartridge;
-
-    // VRAM
-    device_t vram;
-    vram_t vRam;
-    vram.ctx = &vRam;
-    vram.read = readVRAM;
-    vram.write = writeVRAM;
-    vram.enRango = enRangoVRAM;
-    devices[vramId] = &vram;
-
-    // Work Ram
-    device_t workRAM;
-    workRam_t workRam;
-    workRAM.ctx = &workRam;
-    workRAM.read = readWorkRam;
-    workRAM.write = writeWorkRam;
-    workRAM.enRango = enRangoWRAM;
-    devices[workRAMId] = &workRAM;
-
-    // OAM
-    device_t oam;
-    OAM_t oamTableOfSprites;  
-    oam.ctx = &oamTableOfSprites;
-    oam.read = readOAM;
-    oam.write = writeOAM;
-    oam.enRango = enRangoWRAM;
-    devices[oamId] = &oam;
-
-    // IO Registers
-    device_t ioRegisters;
-    IORegisters_t IORegisters;
-    ioRegisters.ctx = &IORegisters;
-    ioRegisters.read = readRegister;
-    ioRegisters.write = writeRegister;
-    ioRegisters.enRango = enRangoIORegisters;
-    devices[ioRegsId] = &ioRegisters;
-
-    // HRAM
-    device_t hRAM;
-    hram_t HRam;
-    hRAM.ctx = &HRam;
-    hRAM.read = readHRam;
-    hRAM.write = writeHRam;
-    hRAM.enRango = enRangoHRAM;
-    devices[hramId] = &hRAM;
-
-    // IE Register
-    device_t ieRegs;
-    IEregister_t interruptControl;
-    ieRegs.ctx = &interruptControl;
-    ieRegs.read = readInterruptRegisterControl;
-    ieRegs.write = writeInterruptRegisterControl;
-    ieRegs.enRango = enRangoIEReg;
-    devices[ieRegsId] = &ieRegs;    
-}
-
 // getter de puntero a device
 device_t* getDeviceByIndex(u8 i)
 {
@@ -224,36 +154,6 @@ void buscarRegistroYEscribirByte(u16 addr, u8 val)
     }
 }
 
-// DMA TRANSFER
-void dmaOamTransfer(u8 hAddr)
-{
-    // Inhabilito el uso del read/write (bus)
-    dmaTransferActive = true;
-    u16 addr = hAddr << 8; // $FF46 dma state register
-
-    OAM_t* oam = devices[oamId]->ctx;
-
-    if (between(0x0, 0x7FFF, addr) || between(0xA000, 0xBFFF, addr)) // Direccion de ROM o dir extRam, if any (8kib)
-    {
-        for (int i = 0; i < 160; i++)
-        {
-            ((OAM_t*)(devices[oamId]->ctx))->spritesTable[i] = readCartridge(addr);
-            addr ++;
-        }
-    }
-    else if (between(0xC000, 0xDFFF, addr)) // dir work ram (8kib)
-    {
-        // Como no implemento cbg (a color) no hay bancos switcheables 
-        for (int i = 0; i < 160; i++)
-        {
-            ((OAM_t*)(devices[oamId]->ctx))->spritesTable[i] = readWorkRam(addr);
-            addr ++;
-        }
-    }
-    dmaTransferActive = 0;
-}
-u8 getDMATransferState() { return dmaTransferActive;}
-
 // Read Devices
 u8 readVRAM(u16 addr)
 {
@@ -293,7 +193,7 @@ u8 readHRam(u16 addr)
 {
     return ((hram_t*)(devices[hramId]->ctx))->data[addr-0xFF80];
 }
-u8 readInterruptRegisterControl()
+u8 readInterruptRegisterControl(u16 addr)
 {
     return ((IEregister_t*)(devices[ieRegsId]->ctx))->registerControl;
 }
@@ -342,7 +242,6 @@ void writeInterruptRegisterControl(u8 val)
     ((IEregister_t*)(devices[ieRegsId]->ctx))->registerControl = val;
 }
 
-
 // En rango Devices
 bool enRangoCartucho(u16 addr) { return cartridgeRange(addr) || extRAMRange(addr);}
 bool enRangoVRAM(u16 addr) { return vramRange(addr);}
@@ -351,3 +250,103 @@ bool enRangoOAM(u16 addr) { return oamRange(addr);}
 bool enRangoIORegisters(u16 addr) { return ioRegistersRange(addr);}
 bool enRangoHRAM(u16 addr) { return hramRange(addr);}
 bool enRangoIEReg(u16 addr) { return addr == ieRegisterAddr;}
+
+// Inicializar all devices para un ROM dado
+void init_Devices(char* gameROMFilePath)
+{
+    dmaTransferActive = false;
+    memset(devices, 0, sizeof(devices));
+    
+    // Cartucho
+    cartridge_t* cartucho = initCartridge(gameROMFilePath);
+    device_t cartridge;
+    cartridge.ctx = cartucho;
+    cartridge.read = readCartridge;
+    cartridge.write = writeCartridge;
+    cartridge.enRango = enRangoCartucho;
+    devices[cartridgeId] = &cartridge;
+    
+    // VRAM
+    device_t vram;
+    vram_t vRam;
+    vram.ctx = &vRam;
+    vram.read = readVRAM;
+    vram.write = writeVRAM;
+    vram.enRango = enRangoVRAM;
+    devices[vramId] = &vram;
+
+    // Work Ram
+    device_t workRAM;
+    workRam_t workRam;
+    workRAM.ctx = &workRam;
+    workRAM.read = readWorkRam;
+    workRAM.write = writeWorkRam;
+    workRAM.enRango = enRangoWRAM;
+    devices[workRAMId] = &workRAM;
+
+    // OAM
+    device_t oam;
+    OAM_t oamTableOfSprites;  
+    oam.ctx = &oamTableOfSprites;
+    oam.read = readOAM;
+    oam.write = writeOAM;
+    oam.enRango = enRangoWRAM;
+    devices[oamId] = &oam;
+
+    // IO Registers
+    device_t ioRegisters;
+    IORegisters_t IORegisters;
+    ioRegisters.ctx = &IORegisters;
+    ioRegisters.read = readRegister;
+    ioRegisters.write = writeRegister;
+    ioRegisters.enRango = enRangoIORegisters;
+    devices[ioRegsId] = &ioRegisters;
+
+    // HRAM
+    device_t hRAM;
+    hram_t HRam;
+    hRAM.ctx = &HRam;
+    hRAM.read = readHRam;
+    hRAM.write = writeHRam;
+    hRAM.enRango = enRangoHRAM;
+    devices[hramId] = &hRAM;
+
+    // IE Register
+    device_t ieRegs;
+    IEregister_t interruptControl;
+    ieRegs.ctx = &interruptControl;
+    ieRegs.read = readInterruptRegisterControl;
+    ieRegs.write = writeInterruptRegisterControl;
+    ieRegs.enRango = enRangoIEReg;
+    devices[ieRegsId] = &ieRegs;    
+}
+
+// DMA TRANSFER
+void dmaOamTransfer(u8 hAddr)
+{
+    // Inhabilito el uso del read/write (bus)
+    dmaTransferActive = true;
+    u16 addr = hAddr << 8; // $FF46 dma state register
+
+    OAM_t* oam = devices[oamId]->ctx;
+
+    if (between(0x0, 0x7FFF, addr) || between(0xA000, 0xBFFF, addr)) // Direccion de ROM o dir extRam, if any (8kib)
+    {
+        for (int i = 0; i < 160; i++)
+        {
+            ((OAM_t*)(devices[oamId]->ctx))->spritesTable[i] = readCartridge(addr);
+            addr ++;
+        }
+    }
+    else if (between(0xC000, 0xDFFF, addr)) // dir work ram (8kib)
+    {
+        // Como no implemento cbg (a color) no hay bancos switcheables 
+        for (int i = 0; i < 160; i++)
+        {
+            ((OAM_t*)(devices[oamId]->ctx))->spritesTable[i] = readWorkRam(addr);
+            addr ++;
+        }
+    }
+    dmaTransferActive = 0;
+}
+u8 getDMATransferState() { return dmaTransferActive;}

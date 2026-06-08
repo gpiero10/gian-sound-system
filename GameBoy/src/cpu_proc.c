@@ -125,18 +125,18 @@ void proc_ld(cpu_context* ctx)
     // ld dst src
     if (ctx->dest_is_mem)
     {
-        if (is16bits(ctx->currentInstruction->reg_2))
+        if (is16BitsRegister(ctx->currentInstruction->reg_2))
         {
             busWrite16(ctx->mem_dest, ctx->fetched_data);
         }
         else
         {
-            busWrite(ctx->mem_dest, (u8)ctx->fetched_data);
+            busWrite(ctx->mem_dest, ctx->fetched_data);
         }   
     }
     else
     {
-        writeCPURegister(ctx->currentInstruction->reg_1, (u8)ctx->fetched_data);   
+        writeCPURegister(ctx->currentInstruction->reg_1, ctx->fetched_data);   
     }   
     // No flags affected
 }
@@ -1200,11 +1200,6 @@ void proc_set(cpu_context *ctx)
     // No flags affected
 }
 
-in_proc getProcessorForCurrentInst(cpu_context* ctx)
-{
-    return processorByInstructionTypeTable[ctx->currentInstruction->type];
-}
-
 in_proc processorByInstructionTypeTable[48] = 
 {
     //[IN_NONE] = 0x0,
@@ -1257,3 +1252,8 @@ in_proc processorByInstructionTypeTable[48] =
     [IN_RES] = proc_res,
     [IN_SET] = proc_set,
 };
+
+in_proc getProcessorForCurrentInst(cpu_context* ctx)
+{
+    return processorByInstructionTypeTable[ctx->currentInstruction->type];
+}
