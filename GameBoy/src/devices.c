@@ -257,8 +257,8 @@ void init_Devices(char* gameROMFilePath)
     dmaTransferActive = false;
     memset(devices, 0, sizeof(devices));
     
-    // Cartucho
-    cartridge_t* cartucho = initCartridge(gameROMFilePath);
+    // Cartucho (TEST MODE)
+    cartridge_t* cartucho = initCartridge(gameROMFilePath, ROM_Test);
     device_t cartridge;
     cartridge.ctx = cartucho;
     cartridge.read = readCartridge;

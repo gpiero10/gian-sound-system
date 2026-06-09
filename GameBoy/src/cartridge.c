@@ -435,13 +435,19 @@ void writeCartridge(uint16_t addr, uint8_t value)
     return;
 }
 
-cartridge_t* initCartridge(char* gameROM)
+cartridge_t* initCartridge(char* gameROM, cartucho_tipo rom)
 {
     memset(&cartucho, 0, sizeof(cartridge_t));
     cartucho.gamePath = gameROM;
     
-    // cartridge(&cartucho); Original
-    cartucho.romData = romTest; // TEST
+    if (rom == ROM_Real) 
+    {
+        cartridge(&cartucho); //Original,
+    } 
+    else 
+    {
+        cartucho.romData = romTestLD; // TEST
+    }    
     
     return &cartucho;
 }

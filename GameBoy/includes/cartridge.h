@@ -4,6 +4,8 @@
 #define romSizeCalc(x) ((1 <<15) << x)
 #define numberOfROMBanks(x) (1 << x)
 
+typedef enum {ROM_Real, ROM_Test} cartucho_tipo;
+
 typedef struct
 {
     char title[16]; 
@@ -45,6 +47,6 @@ typedef struct Cartucho
 
 uint8_t readCartridge(uint16_t addr);
 void writeCartridge(uint16_t addr, uint8_t value);
-cartridge_t* initCartridge(char* gameROM);
+cartridge_t* initCartridge(char* gameROM, cartucho_tipo rom);
 
-extern u8 romTest[0x8000];
+extern u8 romTestLD[0x8000];

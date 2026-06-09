@@ -93,25 +93,17 @@ void cpu_init()
 
 void cpuStep()
 {
-    while (!cpu_ctx.halted)
-    {
-        testLog();
+    // Decode
+    cpu_ctx.cur_opcode = busRead(cpu_ctx.registers.pc++);
+    cpu_ctx.currentInstruction = instruction_by_opcode(cpu_ctx.cur_opcode);
+    
+    // Fetch
+    cpuFetch();
 
-        // Decode
-        cpu_ctx.cur_opcode = busRead(cpu_ctx.registers.pc++);
-        cpu_ctx.currentInstruction = instruction_by_opcode(cpu_ctx.cur_opcode);
-        
-        // Fetch
-        cpuFetch();
-
-        // Execute
-        in_proc processor = getProcessorForCurrentInst(&cpu_ctx);
-        processor(&cpu_ctx);
-        
-    }
-
-    // Si se llega aca es porque la cpu se halteo
-    cpu_halted();
+    // Execute
+    in_proc processor = getProcessorForCurrentInst(&cpu_ctx);
+    processor(&cpu_ctx);
+    
 }
 
 void cpu_halted()
@@ -136,4 +128,16 @@ void cpu_halted()
 void interrputHandling()
 {
     printf("TO DO");
+}
+
+void cpuRun()
+{
+    while (!cpu_ctx.halted)
+    {
+        testLog();  // Imprimo registros
+        cpuStep();  // Se ejecuta 1 instruccion
+    }
+    
+    // Si se llega aca es porque la cpu se halteo
+    cpu_halted();
 }

@@ -557,7 +557,8 @@ void proc_halt(cpu_context* ctx)
     // Bytes: 1
     // Flags: None affected.
 
-        
+    // Implementacion no seria pero necesaria para los test
+    ctx->halted = true;
 
 }
 
@@ -767,6 +768,7 @@ void proc_cb(cpu_context* ctx)
     // PREFIX
     // Here im gonna call the proc associate with the next instruction. Im gonna need a table of $CB instructions
     
+    printf("TO DO");
 }
 
 void proc_call(cpu_context* ctx) 
@@ -857,6 +859,7 @@ void proc_ldh(cpu_context *ctx)
 void proc_jphl(cpu_context *ctx)
 {
     // ?
+    printf("TO DO");
 }
 
 void proc_di(cpu_context *ctx) {ctx->int_master_enabled = false;}
@@ -872,6 +875,7 @@ void proc_rst(cpu_context *ctx)
 void proc_err(cpu_context *ctx)
 {
     //????
+    printf("TO DO");
 }
 
 //CB instructions...

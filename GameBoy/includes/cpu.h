@@ -60,6 +60,6 @@ u16 readCPURegister(reg_type rt);
 void writeCPURegister(reg_type rt, u16 val);
 
 void cpu_init();
+void cpuRun();
 void cpuFetch();
 void cpuStep();
-
