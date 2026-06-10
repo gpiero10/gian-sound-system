@@ -258,7 +258,7 @@ void init_Devices(char* gameROMFilePath)
     memset(devices, 0, sizeof(devices));
     
     // Cartucho (TEST MODE)
-    cartridge_t* cartucho = initCartridge(gameROMFilePath, ROM_Test);
+    cartridge_t* cartucho = initCartridge(gameROMFilePath);
     device_t cartridge;
     cartridge.ctx = cartucho;
     cartridge.read = readCartridge;

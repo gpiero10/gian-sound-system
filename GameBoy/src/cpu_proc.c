@@ -143,7 +143,7 @@ void proc_ld(cpu_context* ctx)
 
 void proc_jr(cpu_context* ctx)
 {
-    i8 relativeJump = ctx->fetched_data;
+    i8 relativeJump = (i8)ctx->fetched_data;
     switch (ctx->currentInstruction->cond)
     {
         case CT_NONE:
@@ -269,9 +269,9 @@ void proc_inc(cpu_context* ctx)
     }
     
     // Flags
-    if (!is16BitsRegister(ctx->currentInstruction->reg_1))
+    if (!is16BitsRegister(ctx->currentInstruction->reg_1) && !ctx->dest_is_mem)
     {
-        checkZeroFlag8Bits((u8)val, ctx);
+        checkZeroFlag8Bits(val, ctx);
         setFlag(ctx, F_N_Subtract, 0);
         checkHalfCarryFlag8Bits((u8)src, 1, ctx);
     }
@@ -284,8 +284,8 @@ void proc_dec(cpu_context* ctx)
     // DEC r16
     // DEC SP
     
-    u8 src;
-    u8 val;
+    u16 src;
+    u16 val;
     if (ctx->dest_is_mem)
     {
         src = busRead(ctx->mem_dest);
@@ -300,7 +300,7 @@ void proc_dec(cpu_context* ctx)
     }
 
     // Flags
-    if (!is16BitsRegister(ctx->currentInstruction->reg_1))
+    if (!is16BitsRegister(ctx->currentInstruction->reg_1) && !ctx->dest_is_mem)
     {
         // En caso DEC [HL] y DEC r8 si hay chequeo de flags
         checkZeroFlag8Bits(val, ctx);
@@ -767,8 +767,18 @@ void proc_cb(cpu_context* ctx)
 {
     // PREFIX
     // Here im gonna call the proc associate with the next instruction. Im gonna need a table of $CB instructions
-    
-    printf("TO DO");
+
+    // Decode
+    ctx->cur_opcode = busRead(ctx->registers.pc++);
+    ctx->currentInstruction = CB_instruction_by_opcode(ctx->cur_opcode);
+
+    // Fetch
+    cpuFetch();
+
+    // Execute
+    in_proc processor = getProcessorForCurrentInst(&ctx);
+    processor(&ctx);
+
 }
 
 void proc_call(cpu_context* ctx) 

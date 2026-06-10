@@ -1,15 +1,23 @@
 #include <cpu.h>
 
 cpu_context cpu_ctx;
+u64 cant_instructions;
+
 
 void testLog()
 {
     // TEST Register LOG
     printf(
-        "PC=%04X OP=%02X "
-        "AF=%04X BC=%04X DE=%04X HL=%04X SP=%04X\n",
+        "PC=%04X OP=%02X\n"
+        "FLAGS: N = %01X, Z = %01X, C = %01X, HC = %01X\n"
+        "AF=%04X BC=%04X DE=%04X HL=%04X SP=%04X\n"
+        "\n",
         readCPURegister(RT_PC),
         cpu_ctx.cur_opcode,
+        getFlag(&cpu_ctx, F_N_Subtract),
+        getFlag(&cpu_ctx, F_ZERO),
+        getFlag(&cpu_ctx, F_CARRY),
+        getFlag(&cpu_ctx, F_HalfCarry),
         readCPURegister(RT_AF),
         readCPURegister(RT_BC),
         readCPURegister(RT_DE),
@@ -132,12 +140,26 @@ void interrputHandling()
 
 void cpuRun()
 {
+    cant_instructions = 0;
+    
     while (!cpu_ctx.halted)
     {
-        testLog();  // Imprimo registros
         cpuStep();  // Se ejecuta 1 instruccion
+        cant_instructions ++;   
+
+        //if (between(0x200, 0x210, cpu_ctx.registers.pc)) {testLog();}
+        
+        if (cant_instructions % 1000000 == 0) {testLog();}
+
+        // Leer de port SC
+        if (busRead(0xFF02) == 0x81)
+        {
+            putchar(busRead(0xFF01));
+            busWrite(0xFF02, 0); //limpio el i/o port
+        }
+
     }
     
     // Si se llega aca es porque la cpu se halteo
-    cpu_halted();
+    //cpu_halted();
 }

@@ -59,6 +59,8 @@ in_proc getProcessorForCurrentInst(cpu_context* ctx);
 u16 readCPURegister(reg_type rt);
 void writeCPURegister(reg_type rt, u16 val);
 
+u8 getFlag(cpu_context* ctx, flag_t f);
+
 void cpu_init();
 void cpuRun();
 void cpuFetch();
