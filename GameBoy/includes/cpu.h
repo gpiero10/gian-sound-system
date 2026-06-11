@@ -51,6 +51,8 @@ typedef struct cpuContext
 
     bool int_master_enabled; // IME: Interrupt master enable flag [write only]. Interno al cpu, no se puede leer (osea no se carga en ningun registro ni memoria)
 
+    bool cbInst; //Flag que indica si se va a ejecutar una CB instruction
+
 } cpu_context;
 
 typedef void (*in_proc)(cpu_context*); // El tipo de las funciones processors

@@ -269,7 +269,7 @@ void proc_inc(cpu_context* ctx)
     }
     
     // Flags
-    if (!is16BitsRegister(ctx->currentInstruction->reg_1) && !ctx->dest_is_mem)
+    if (!is16BitsRegister(ctx->currentInstruction->reg_1) || ctx->dest_is_mem)
     {
         checkZeroFlag8Bits(val, ctx);
         setFlag(ctx, F_N_Subtract, 0);
@@ -300,7 +300,7 @@ void proc_dec(cpu_context* ctx)
     }
 
     // Flags
-    if (!is16BitsRegister(ctx->currentInstruction->reg_1) && !ctx->dest_is_mem)
+    if (!is16BitsRegister(ctx->currentInstruction->reg_1) || ctx->dest_is_mem)
     {
         // En caso DEC [HL] y DEC r8 si hay chequeo de flags
         checkZeroFlag8Bits(val, ctx);
@@ -768,16 +768,7 @@ void proc_cb(cpu_context* ctx)
     // PREFIX
     // Here im gonna call the proc associate with the next instruction. Im gonna need a table of $CB instructions
 
-    // Decode
-    ctx->cur_opcode = busRead(ctx->registers.pc++);
-    ctx->currentInstruction = CB_instruction_by_opcode(ctx->cur_opcode);
-
-    // Fetch
-    cpuFetch();
-
-    // Execute
-    in_proc processor = getProcessorForCurrentInst(&ctx);
-    processor(&ctx);
+    ctx->cbInst = true;
 
 }
 
@@ -869,7 +860,7 @@ void proc_ldh(cpu_context *ctx)
 void proc_jphl(cpu_context *ctx)
 {
     // ?
-    printf("TO DO");
+
 }
 
 void proc_di(cpu_context *ctx) {ctx->int_master_enabled = false;}
@@ -1248,7 +1239,7 @@ in_proc processorByInstructionTypeTable[48] =
     [IN_CALL] = proc_call,
     [IN_RETI] = proc_reti,
     [IN_LDH] = proc_ldh,
-    [IN_JPHL] = proc_jphl,
+    [IN_JPHL] = proc_jp,
     [IN_DI] = proc_di,
     [IN_EI] = proc_ei,
     [IN_RST] = proc_rst,

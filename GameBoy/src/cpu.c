@@ -1,8 +1,6 @@
 #include <cpu.h>
 
 cpu_context cpu_ctx;
-u64 cant_instructions;
-
 
 void testLog()
 {
@@ -29,6 +27,7 @@ void cpu_init()
 {
     memset(&cpu_ctx, 0, sizeof(cpu_context));
     cpu_ctx.halted = false;
+    cpu_ctx.cbInst = false;
 
     // Inicializacion Registros del cpu y del hardware (control, I/O, etc)
     cpu_registers registers;
@@ -102,8 +101,17 @@ void cpu_init()
 void cpuStep()
 {
     // Decode
-    cpu_ctx.cur_opcode = busRead(cpu_ctx.registers.pc++);
-    cpu_ctx.currentInstruction = instruction_by_opcode(cpu_ctx.cur_opcode);
+    if (cpu_ctx.cbInst == false)
+    {
+        cpu_ctx.cur_opcode = busRead(cpu_ctx.registers.pc++);
+        cpu_ctx.currentInstruction = instruction_by_opcode(cpu_ctx.cur_opcode);
+    } 
+    else
+    {
+        cpu_ctx.cur_opcode = (u8)cpu_ctx.fetched_data;
+        cpu_ctx.currentInstruction = CB_instruction_by_opcode(cpu_ctx.cur_opcode);
+        cpu_ctx.cbInst = false;
+    }
     
     // Fetch
     cpuFetch();
@@ -139,18 +147,13 @@ void interrputHandling()
 }
 
 void cpuRun()
-{
-    cant_instructions = 0;
-    
+{   
     while (!cpu_ctx.halted)
     {
         cpuStep();  // Se ejecuta 1 instruccion
-        cant_instructions ++;   
 
-        //if (between(0x200, 0x210, cpu_ctx.registers.pc)) {testLog();}
+        testLog();
         
-        if (cant_instructions % 1000000 == 0) {testLog();}
-
         // Leer de port SC
         if (busRead(0xFF02) == 0x81)
         {
