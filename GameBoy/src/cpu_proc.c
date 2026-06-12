@@ -144,6 +144,10 @@ void proc_ld(cpu_context* ctx)
 void proc_jr(cpu_context* ctx)
 {
     i8 relativeJump = (i8)ctx->fetched_data;
+    
+    //printf("JR: antes PC=%04X, offset leido=%02X\n", ctx->registers.pc, relativeJump);
+    // ... ejecutar el JR ...
+    
     switch (ctx->currentInstruction->cond)
     {
         case CT_NONE:
@@ -181,6 +185,9 @@ void proc_jr(cpu_context* ctx)
         default:
             break;
     }
+
+    //printf("JR: despues PC=%04X\n", ctx->registers.pc);
+
 }
 
 void proc_jp(cpu_context* ctx)
@@ -859,7 +866,7 @@ void proc_ldh(cpu_context *ctx)
 
 void proc_jphl(cpu_context *ctx)
 {
-    // ?
+    // Funcion fantasma, es proc_jp
 
 }
 

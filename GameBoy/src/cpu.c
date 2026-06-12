@@ -2,15 +2,17 @@
 
 cpu_context cpu_ctx;
 
+u16 oldPC;
+
 void testLog()
 {
     // TEST Register LOG
     printf(
         "PC=%04X OP=%02X\n"
         "FLAGS: N = %01X, Z = %01X, C = %01X, HC = %01X\n"
-        "AF=%04X BC=%04X DE=%04X HL=%04X SP=%04X\n"
+        "AF=%04X BC=%04X DE=%04X HL=%04X SP=%04X curPC=%04X\n"
         "\n",
-        readCPURegister(RT_PC),
+        oldPC,
         cpu_ctx.cur_opcode,
         getFlag(&cpu_ctx, F_N_Subtract),
         getFlag(&cpu_ctx, F_ZERO),
@@ -20,7 +22,9 @@ void testLog()
         readCPURegister(RT_BC),
         readCPURegister(RT_DE),
         readCPURegister(RT_HL),
-        readCPURegister(RT_SP));
+        readCPURegister(RT_SP),
+        readCPURegister(RT_PC)
+    );
 }
 
 void cpu_init()
@@ -35,7 +39,7 @@ void cpu_init()
 
     // Seteando el estado inicial de los registros en DMG
     registers.a = 0x01;
-    registers.f = 0x80; // Z=1, N=0, H=0, C=0
+    registers.f = 0xB0;// 0x80; // Z=1, N=0, H=0, C=0
     registers.b = 0x00;
     registers.c = 0x13;
     registers.d = 0x00;
@@ -149,7 +153,9 @@ void interrputHandling()
 void cpuRun()
 {   
     while (!cpu_ctx.halted)
-    {
+    {   
+        oldPC = cpu_ctx.registers.pc;
+        
         cpuStep();  // Se ejecuta 1 instruccion
 
         testLog();
@@ -157,6 +163,7 @@ void cpuRun()
         // Leer de port SC
         if (busRead(0xFF02) == 0x81)
         {
+            noOP();
             putchar(busRead(0xFF01));
             busWrite(0xFF02, 0); //limpio el i/o port
         }
@@ -165,4 +172,9 @@ void cpuRun()
     
     // Si se llega aca es porque la cpu se halteo
     //cpu_halted();
+}
+
+void noOP()
+{
+    int a = 67;
 }
