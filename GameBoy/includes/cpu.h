@@ -3,6 +3,7 @@
 #include <commons.h>
 #include <bus.h>
 #include <instrucciones.h>
+#include <interrupciones.h>
 
 typedef enum
 {
@@ -50,9 +51,8 @@ typedef struct cpuContext
     bool stepping; // (?) los m-cycles que dura una ejecucion de instruccion (acumulado), me inspire en el chabon del tutubi
 
     bool int_master_enabled; // IME: Interrupt master enable flag [write only]. Interno al cpu, no se puede leer (osea no se carga en ningun registro ni memoria)
-
-    bool cbInst; //Flag que indica si se va a ejecutar una CB instruction
-
+    bool activando_IME; // un Flag que indica que se tiene que activar la flag int_master_enabled, simulando una especie de delay
+    u8 delayPatriotico; // contador de instrucciones para delay EI
 } cpu_context;
 
 typedef void (*in_proc)(cpu_context*); // El tipo de las funciones processors

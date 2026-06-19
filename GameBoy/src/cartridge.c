@@ -1,6 +1,5 @@
 #include "cartridge.h"
 
-cartridge_t cartucho;
 
 const License licenses[] = {
     {"00", "None"},
@@ -276,7 +275,7 @@ int headerRead(char* buffer, header_t* cabezal)
     return 0;
 }
 
-uint8_t cartridge(cartridge_t* cartucho)
+u8 cartridge(cartridge_t* cartucho)
 {   
     FILE* rom = fopen(cartucho->gamePath, "rb");
     
@@ -394,6 +393,7 @@ void cartridgeTypeDefinitor(cartridge_t *cartucho)
     }
 }
 
+/*
 u8 readCartridge(uint16_t addr)
 {
     if (between(0x0, 0x3FFF, addr)) //Banco 0
@@ -417,7 +417,6 @@ u8 readCartridge(uint16_t addr)
     
     return -1;
 }
-
 void writeCartridge(uint16_t addr, uint8_t value)
 {
     if (between(0x0, 0x7FFF, addr)) // Direccion de ROM
@@ -434,13 +433,14 @@ void writeCartridge(uint16_t addr, uint8_t value)
     }
     return;
 }
+*/
 
-cartridge_t* initCartridge(char* gameROM)
+void initCartridge(char* gameROM, cartridge_t* cartucho)
 {
-    memset(&cartucho, 0, sizeof(cartridge_t));
-    cartucho.gamePath = gameROM;
+    memset(cartucho, 0, sizeof(cartridge_t));
+    cartucho->gamePath = gameROM;
     
-    cartridge(&cartucho); //Original,
+    cartridge(cartucho); //Original,
      
-    return &cartucho;
+    return;
 }

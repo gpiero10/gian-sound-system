@@ -16,7 +16,6 @@
 #define mitadAltaByte(x) ((x & 0xF0) >> 4) 
 #define mitadBajaByte(x) (x & 0x0F)
 
-#define opCodeBits(x) ((x & 0xC0) >> 6)
 #define bits01y2(x) (x & 0x7)
 #define bits3y4(x) ((x & 0x18) >> 3)
 #define bits4y5(x) ((x & 0x30) >> 4)
@@ -25,6 +24,10 @@
 #define bit6(x) ((x & 0x40) >> 6)
 #define bit5(x) ((x & 0x20) >> 5)
 #define bit4(x) ((x & 0x10) >> 4)
+#define bit3(x) ((x & 0x08) >> 3)
+#define bit2(x) ((x & 0x04) >> 2)
+#define bit1(x) ((x & 0x02) >> 1)
+#define bit0(x) ((x & 0x01))
 
 #define isCarry(src1, src2) ((src1 + src2) > 0xFF)
 #define isHalfCarry(src1, src2) (((src1 & 0xF) + (src2 & 0xF)) > 0xF)

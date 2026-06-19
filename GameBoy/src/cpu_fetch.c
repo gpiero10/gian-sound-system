@@ -28,7 +28,7 @@ void cpuFetch()
 
         cpu_ctx.mem_dest = readCPURegister(cpu_ctx.currentInstruction->reg_1);
 
-        if (between(RT_A, RT_L, cpu_ctx.currentInstruction->reg_1))
+        if (cpu_ctx.currentInstruction->reg_1 == RT_C)
         {
             cpu_ctx.mem_dest |= 0xFF00;
         }
@@ -47,7 +47,7 @@ void cpuFetch()
         {
             u16 addr = readCPURegister(cpu_ctx.currentInstruction->reg_2);
 
-            if (between(RT_A, RT_L, cpu_ctx.currentInstruction->reg_2))
+            if (cpu_ctx.currentInstruction->reg_2 == RT_C)
             {
                 addr |= 0xFF00;
             }

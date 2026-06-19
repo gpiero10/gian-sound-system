@@ -1,12 +1,12 @@
 #include "devices.h"
 
-device_t* devices[cantDevices];
+static device_t devices[cantDevices];
 u8 dmaTransferActive;
 
 // getter de puntero a device
 device_t* getDeviceByIndex(u8 i)
 {
-    return devices[i];
+    return &devices[i];
 }
 
 // Auxiliares Read/Write registros i/o
@@ -14,7 +14,7 @@ u8 buscarRegistroYLeerByte(u16 addr)
 {
     // un Quilombo
     uint8_t dato = -1;
-    IORegisters_t* ctx = devices[ioRegsId]->ctx; 
+    IORegisters_t* ctx = devices[ioRegsId].ctx; 
 
     if (0xFF00 == addr)
     {
@@ -86,7 +86,7 @@ u8 buscarRegistroYLeerByte(u16 addr)
 void buscarRegistroYEscribirByte(u16 addr, u8 val)
 {
     // un Quilombo
-    IORegisters_t* ctx = devices[ioRegsId]->ctx; 
+    IORegisters_t* ctx = devices[ioRegsId].ctx; 
     
     if (0xFF00 == addr)
     {
@@ -155,6 +155,29 @@ void buscarRegistroYEscribirByte(u16 addr, u8 val)
 }
 
 // Read Devices
+u8 readCartridge(uint16_t addr)
+{
+    if (between(0x0, 0x3FFF, addr)) //Banco 0
+    {
+        return ((cartridge_t*)devices[cartridgeId].ctx)->romData[addr];
+    }
+    else if(between(0x4000, 0x7FFF, addr))// Banco N ("intercambiable") 
+    {
+        // caso de cartucho con MBC
+        uint16_t bankOffset = (((cartridge_t*)devices[cartridgeId].ctx)->activeBankROM - 1)*(1<<14);
+        return ((cartridge_t*)devices[cartridgeId].ctx)->romData[bankOffset + addr];
+    }
+    else if(between(0xA000, 0xBFFF, addr)) //dir extRam, if any (8kib)
+    {
+        if (((cartridge_t*)devices[cartridgeId].ctx)->externalRamPresent == 1)
+        {
+            uint16_t bankOffset = (((cartridge_t*)devices[cartridgeId].ctx)->activeBankRAM - 1)*(1<<13);
+            return ((cartridge_t*)devices[cartridgeId].ctx)->ramData[bankOffset + addr - 0xA000];
+        }
+    }
+    
+    return -1;
+}
 u8 readVRAM(u16 addr)
 {
     
@@ -165,13 +188,13 @@ u8 readVRAM(u16 addr)
     }
     else
     {
-        return ((vram_t*)(devices[vramId]->ctx))->data[addr - 0x8000];
+        return ((vram_t*)(devices[vramId].ctx))->data[addr - 0x8000];
     }            
 }
 u8 readWorkRam(u16 addr)
 {
     // Como no implemento cbg (a color) no hay bancos switcheables 
-    return ((workRam_t*)(devices[workRAMId]->ctx))->data[addr - 0xC000];
+    return ((workRam_t*)(devices[workRAMId].ctx))->data[addr - 0xC000];
 }
 u8 readOAM(u16 addr)
 {
@@ -182,7 +205,7 @@ u8 readOAM(u16 addr)
     }
     else
     {
-        return ((OAM_t*)(devices[oamId]->ctx))->spritesTable[addr-0xFE00];
+        return ((OAM_t*)(devices[oamId].ctx))->spritesTable[addr-0xFE00];
     }   
 }
 u8 readRegister(u16 addr)
@@ -191,14 +214,30 @@ u8 readRegister(u16 addr)
 }
 u8 readHRam(u16 addr)
 {
-    return ((hram_t*)(devices[hramId]->ctx))->data[addr-0xFF80];
+    return ((hram_t*)(devices[hramId].ctx))->data[addr-0xFF80];
 }
 u8 readInterruptRegisterControl(u16 addr)
 {
-    return ((IEregister_t*)(devices[ieRegsId]->ctx))->registerControl;
+    return ((IEregister_t*)(devices[ieRegsId].ctx))->registerControl;
 }
 
 // Write Devices
+void writeCartridge(uint16_t addr, uint8_t value)
+{
+    if (between(0x0, 0x7FFF, addr)) // Direccion de ROM
+    {
+        // No se puede escribir en ROM pero, se configura el MBC en caso de haberlo
+    }
+    else if(between(0xA000, 0xBFFF, addr)) //dir extRam, if any (8kib)
+    {
+        if (((cartridge_t*)devices[cartridgeId].ctx)->externalRamPresent == 1)
+        {
+            u16 bankOffset = (((cartridge_t*)devices[cartridgeId].ctx)->activeBankRAM - 1)*(1<<13);
+            ((cartridge_t*)devices[cartridgeId].ctx)->romData[bankOffset + addr - 0xA000] = value;
+        }
+    }
+    return;
+}
 void writeVRAM(u16 addr, u8 val)
 {
     u8 state = buscarRegistroYLeerByte(0xFF41); //$FF41, ppu mode
@@ -208,13 +247,13 @@ void writeVRAM(u16 addr, u8 val)
     }
     else
     {
-        ((vram_t*)(devices[vramId]->ctx))->data[addr-0x8000] = val;
+        ((vram_t*)(devices[vramId].ctx))->data[addr-0x8000] = val;
     } 
 }
 void writeWorkRam(u16 addr, u8 val)
 {
     // Como no implemento cbg (a color) no hay bancos switcheables 
-    ((workRam_t*)(devices[workRAMId]->ctx))->data[addr-0xC000] = val;
+    ((workRam_t*)(devices[workRAMId].ctx))->data[addr-0xC000] = val;
 }
 void writeOAM(u16 addr, u8 val)
 {
@@ -225,7 +264,7 @@ void writeOAM(u16 addr, u8 val)
     }
     else
     {
-        ((OAM_t*)(devices[oamId]->ctx))->spritesTable[addr-0xFE00] = val;    
+        ((OAM_t*)(devices[oamId].ctx))->spritesTable[addr-0xFE00] = val;    
     }  
 }
 void writeRegister(u16 addr, u8 val)
@@ -235,11 +274,11 @@ void writeRegister(u16 addr, u8 val)
 void writeHRam(u16 addr, u8 val)
 {
     // Unica area de memoria disponible durante una transferencia DMA to OAM (ram/rom -> OAM)
-    ((hram_t*)(devices[hramId]->ctx))->data[addr-0xFF80] = val;
+    ((hram_t*)(devices[hramId].ctx))->data[addr-0xFF80] = val;
 }
 void writeInterruptRegisterControl(u8 val)
 {
-    ((IEregister_t*)(devices[ieRegsId]->ctx))->registerControl = val;
+    ((IEregister_t*)(devices[ieRegsId].ctx))->registerControl = val;
 }
 
 // En rango Devices
@@ -258,67 +297,122 @@ void init_Devices(char* gameROMFilePath)
     memset(devices, 0, sizeof(devices));
     
     // Cartucho (TEST MODE)
-    cartridge_t* cartucho = initCartridge(gameROMFilePath);
-    device_t cartridge;
-    cartridge.ctx = cartucho;
+    static cartridge_t cartucho; 
+    initCartridge(gameROMFilePath, &cartucho);
+    static device_t cartridge;
+    cartridge.ctx = &cartucho;
     cartridge.read = readCartridge;
     cartridge.write = writeCartridge;
     cartridge.enRango = enRangoCartucho;
-    devices[cartridgeId] = &cartridge;
+    devices[cartridgeId] = cartridge;
     
     // VRAM
-    device_t vram;
-    vram_t vRam;
+    static device_t vram;
+    static vram_t vRam;
     vram.ctx = &vRam;
     vram.read = readVRAM;
     vram.write = writeVRAM;
     vram.enRango = enRangoVRAM;
-    devices[vramId] = &vram;
+    devices[vramId] = vram;
 
     // Work Ram
-    device_t workRAM;
-    workRam_t workRam;
+    static device_t workRAM;
+    static workRam_t workRam;
     workRAM.ctx = &workRam;
     workRAM.read = readWorkRam;
     workRAM.write = writeWorkRam;
     workRAM.enRango = enRangoWRAM;
-    devices[workRAMId] = &workRAM;
+    devices[workRAMId] = workRAM;
 
     // OAM
-    device_t oam;
-    OAM_t oamTableOfSprites;  
+    static device_t oam;
+    static OAM_t oamTableOfSprites;  
     oam.ctx = &oamTableOfSprites;
     oam.read = readOAM;
     oam.write = writeOAM;
-    oam.enRango = enRangoWRAM;
-    devices[oamId] = &oam;
+    oam.enRango = enRangoOAM;
+    devices[oamId] = oam;
 
     // IO Registers
-    device_t ioRegisters;
-    IORegisters_t IORegisters;
+    static device_t ioRegisters;
+    static IORegisters_t IORegisters;
     ioRegisters.ctx = &IORegisters;
     ioRegisters.read = readRegister;
     ioRegisters.write = writeRegister;
     ioRegisters.enRango = enRangoIORegisters;
-    devices[ioRegsId] = &ioRegisters;
+    devices[ioRegsId] = ioRegisters;
 
     // HRAM
-    device_t hRAM;
-    hram_t HRam;
+    static device_t hRAM;
+    static hram_t HRam;
     hRAM.ctx = &HRam;
     hRAM.read = readHRam;
     hRAM.write = writeHRam;
     hRAM.enRango = enRangoHRAM;
-    devices[hramId] = &hRAM;
+    devices[hramId] = hRAM;
 
     // IE Register
-    device_t ieRegs;
-    IEregister_t interruptControl;
+    static device_t ieRegs;
+    static IEregister_t interruptControl;
     ieRegs.ctx = &interruptControl;
     ieRegs.read = readInterruptRegisterControl;
     ieRegs.write = writeInterruptRegisterControl;
     ieRegs.enRango = enRangoIEReg;
-    devices[ieRegsId] = &ieRegs;    
+    devices[ieRegsId] = ieRegs;
+    
+    // Seteo el estado inicial de los registros de memoria en DMG
+    {
+        busWrite(0xFF00, 0xCF);
+        busWrite(0xFF01, 0x00);
+        busWrite(0xFF02, 0x7E);
+        busWrite(0xFF04, 0xAB);
+        busWrite(0xFF05, 0x00);
+
+        busWrite(0xFF06, 0x00);
+        busWrite(0xFF07, 0xF8);
+        busWrite(0xFF0F, 0xE1); // Seteo IF
+        busWrite(0xFF10, 0x80);
+        busWrite(0xFF11, 0xBF);
+
+        busWrite(0xFF12, 0xF3);
+        busWrite(0xFF13, 0xFF);
+        busWrite(0xFF14, 0xBF);
+        busWrite(0xFF16, 0x3F);
+        busWrite(0xFF17, 0x00);
+
+        busWrite(0xFF18, 0xFF);
+        busWrite(0xFF19, 0xBF);
+        busWrite(0xFF1A, 0x7F);
+        busWrite(0xFF1B, 0xFF);
+        busWrite(0xFF1C, 0x9F);
+
+        busWrite(0xFF1D, 0xFF);
+        busWrite(0xFF1E, 0xBF);
+        busWrite(0xFF20, 0xFF);
+        busWrite(0xFF21, 0x00);
+        busWrite(0xFF22, 0x00);
+
+        busWrite(0xFF23, 0xBF);
+        busWrite(0xFF24, 0x77);
+        busWrite(0xFF25, 0xF3);
+        busWrite(0xFF26, 0xF1);
+        busWrite(0xFF40, 0x91);
+
+        busWrite(0xFF41, 0x85);
+        busWrite(0xFF42, 0x00);
+        busWrite(0xFF43, 0x00);
+        busWrite(0xFF44, 0x90); // Doctor Gameboy
+        busWrite(0xFF45, 0x00);
+
+        busWrite(0xFF46, 0xFF);
+        busWrite(0xFF47, 0xFC);
+        // busWrite(0xFF48, 0x00); undefined
+        // busWrite(0xFF49, 0x00); undefined
+        busWrite(0xFF4A, 0x00);
+        busWrite(0xFF4B, 0x00);
+
+        busWrite(0xFFFF, 0x00); // seteo IE
+    }
 }
 
 // DMA TRANSFER
@@ -328,13 +422,13 @@ void dmaOamTransfer(u8 hAddr)
     dmaTransferActive = true;
     u16 addr = hAddr << 8; // $FF46 dma state register
 
-    OAM_t* oam = devices[oamId]->ctx;
+    OAM_t* oam = devices[oamId].ctx;
 
     if (between(0x0, 0x7FFF, addr) || between(0xA000, 0xBFFF, addr)) // Direccion de ROM o dir extRam, if any (8kib)
     {
         for (int i = 0; i < 160; i++)
         {
-            ((OAM_t*)(devices[oamId]->ctx))->spritesTable[i] = readCartridge(addr);
+            ((OAM_t*)(devices[oamId].ctx))->spritesTable[i] = readCartridge(addr);
             addr ++;
         }
     }
@@ -343,7 +437,7 @@ void dmaOamTransfer(u8 hAddr)
         // Como no implemento cbg (a color) no hay bancos switcheables 
         for (int i = 0; i < 160; i++)
         {
-            ((OAM_t*)(devices[oamId]->ctx))->spritesTable[i] = readWorkRam(addr);
+            ((OAM_t*)(devices[oamId].ctx))->spritesTable[i] = readWorkRam(addr);
             addr ++;
         }
     }

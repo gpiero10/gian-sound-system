@@ -764,6 +764,31 @@ void proc_ret(cpu_context* ctx)
     // Bytes: 1
     // Flags: None affected.
 
+    switch (ctx->currentInstruction->cond)
+    {
+    case CT_NONE:
+        break;
+    
+    case CT_C:
+        if (getFlag(ctx, F_CARRY) == 0) {return;}
+        break;
+    
+    case CT_NC:
+        if (getFlag(ctx, F_CARRY) == 1) {return;}
+        break;
+
+    case CT_Z:
+        if (getFlag(ctx, F_ZERO) == 0) {return;}
+        break;
+
+    case CT_NZ:
+        if (getFlag(ctx, F_ZERO) == 1) {return;}
+        break;
+
+    default:
+        break;
+    }
+
     u8 low = busRead(ctx->registers.sp ++);
     u8 high = busRead(ctx->registers.sp ++);
     
@@ -775,7 +800,7 @@ void proc_cb(cpu_context* ctx)
     // PREFIX
     // Here im gonna call the proc associate with the next instruction. Im gonna need a table of $CB instructions
 
-    ctx->cbInst = true;
+    // Totalmente al pedo
 
 }
 
@@ -835,7 +860,6 @@ void proc_reti(cpu_context* ctx)
     // Cycles: 4
     // Bytes: 1
     // Flags: None affected.
-
     proc_ei(ctx);
     proc_ret(ctx);
 }
@@ -872,7 +896,11 @@ void proc_jphl(cpu_context *ctx)
 
 void proc_di(cpu_context *ctx) {ctx->int_master_enabled = false;}
 
-void proc_ei(cpu_context *ctx) {ctx->int_master_enabled = true;}
+void proc_ei(cpu_context *ctx) 
+{
+    ctx->activando_IME = true;
+    ctx->delayPatriotico = 2; // 2 chequeos post esta ejecucion y la siguiente (equiv a activarse despues de la siguiente instruccion)
+}
 
 void proc_rst(cpu_context *ctx)
 {
@@ -1127,7 +1155,7 @@ void proc_srl(cpu_context *ctx)
     {
         byte = ctx->fetched_data;
         bit0 = byte & 0x01;
-        byte = byte >> 1;
+        byte = (byte >> 1) & 0x7F;
 
         busWrite(ctx->mem_dest, byte);
     }
@@ -1135,7 +1163,7 @@ void proc_srl(cpu_context *ctx)
     {
         byte = readCPURegister(ctx->currentInstruction->reg_1);
         bit0 = byte & 0x01;
-        byte = byte >> 1;        
+        byte = (byte >> 1) & 0x7F;        
         
         writeCPURegister(ctx->currentInstruction->reg_1, byte);
     }

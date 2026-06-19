@@ -36,6 +36,10 @@ u16 readCPURegister(reg_type rt)
         sourceRegister = cpu_ctx.registers.a;
         break;
 
+    case RT_F:
+        sourceRegister = cpu_ctx.registers.f;
+        break;
+
     case RT_AF:
         sourceRegister = ext16bits(cpu_ctx.registers.a, cpu_ctx.registers.f);
         break;

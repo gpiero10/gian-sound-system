@@ -46,4 +46,4 @@ typedef struct Cartucho
 
 uint8_t readCartridge(uint16_t addr);
 void writeCartridge(uint16_t addr, uint8_t value);
-cartridge_t* initCartridge(char* gameROM);
+void initCartridge(char* gameROM, cartridge_t* cartucho);

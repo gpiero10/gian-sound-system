@@ -1,37 +1,60 @@
 #include <cpu.h>
 
 cpu_context cpu_ctx;
+extern FILE* testLogFile;
 
-u16 oldPC;
+u64 cantExec;
 
 void testLog()
 {
-    // TEST Register LOG
-    printf(
-        "PC=%04X OP=%02X\n"
-        "FLAGS: N = %01X, Z = %01X, C = %01X, HC = %01X\n"
-        "AF=%04X BC=%04X DE=%04X HL=%04X SP=%04X curPC=%04X\n"
-        "\n",
-        oldPC,
-        cpu_ctx.cur_opcode,
-        getFlag(&cpu_ctx, F_N_Subtract),
-        getFlag(&cpu_ctx, F_ZERO),
-        getFlag(&cpu_ctx, F_CARRY),
-        getFlag(&cpu_ctx, F_HalfCarry),
-        readCPURegister(RT_AF),
-        readCPURegister(RT_BC),
-        readCPURegister(RT_DE),
-        readCPURegister(RT_HL),
+    //TEST Register LOG
+    // printf(
+    //     "PC=%04X OP=%02X\n"
+    //     "FLAGS: N = %01X, Z = %01X, C = %01X, HC = %01X\n"
+    //     "AF=%04X BC=%04X DE=%04X HL=%04X SP=%04X\n"
+    //     "\n",
+    //     readCPURegister(RT_PC),
+    //     cpu_ctx.cur_opcode,
+    //     getFlag(&cpu_ctx, F_N_Subtract),
+    //     getFlag(&cpu_ctx, F_ZERO),
+    //     getFlag(&cpu_ctx, F_CARRY),
+    //     getFlag(&cpu_ctx, F_HalfCarry),
+    //     readCPURegister(RT_AF),
+    //     readCPURegister(RT_BC),
+    //     readCPURegister(RT_DE),
+    //     readCPURegister(RT_HL),
+    //     readCPURegister(RT_SP)
+    // );
+    
+    //File LOG
+    u16 curPC = readCPURegister(RT_PC);
+    fprintf(testLogFile,
+        "A:%02X F:%02X B:%02X C:%02X D:%02X E:%02X H:%02X L:%02X SP:%04X PC:%04X PCMEM:%02X,%02X,%02X,%02X\n",
+        readCPURegister(RT_A),
+        readCPURegister(RT_F),
+        readCPURegister(RT_B),
+        readCPURegister(RT_C),
+        readCPURegister(RT_D),
+        readCPURegister(RT_E),
+        readCPURegister(RT_H),
+        readCPURegister(RT_L),
         readCPURegister(RT_SP),
-        readCPURegister(RT_PC)
+        curPC,
+        busRead(curPC),
+        busRead(curPC + 1),
+        busRead(curPC + 2),
+        busRead(curPC + 3)
     );
 }
+void noOP(){ int a = 67;}
 
 void cpu_init()
 {
     memset(&cpu_ctx, 0, sizeof(cpu_context));
     cpu_ctx.halted = false;
-    cpu_ctx.cbInst = false;
+    cpu_ctx.activando_IME = false;
+    cpu_ctx.delayPatriotico = -1;
+    cpu_ctx.int_master_enabled = false;
 
     // Inicializacion Registros del cpu y del hardware (control, I/O, etc)
     cpu_registers registers;
@@ -49,72 +72,21 @@ void cpu_init()
     registers.pc = 0x0100;
     registers.sp = 0xFFFE;
 
-    // asumiendo que la memoria ya esta inicializada, escribo directamente aprovechando estas funciones
-    busWrite(0xFF00, 0xCF);
-    busWrite(0xFF01, 0x00);
-    busWrite(0xFF02, 0x7E);
-    busWrite(0xFF04, 0xAB);
-    busWrite(0xFF05, 0x00);
-
-    busWrite(0xFF06, 0x00);
-    busWrite(0xFF07, 0xF8);
-    busWrite(0xFF0F, 0xE1);
-    busWrite(0xFF10, 0x80);
-    busWrite(0xFF11, 0xBF);
-
-    busWrite(0xFF12, 0xF3);
-    busWrite(0xFF13, 0xFF);
-    busWrite(0xFF14, 0xBF);
-    busWrite(0xFF16, 0x3F);
-    busWrite(0xFF17, 0x00);
-
-    busWrite(0xFF18, 0xFF);
-    busWrite(0xFF19, 0xBF);
-    busWrite(0xFF1A, 0x7F);
-    busWrite(0xFF1B, 0xFF);
-    busWrite(0xFF1C, 0x9F);
-
-    busWrite(0xFF1D, 0xFF);
-    busWrite(0xFF1E, 0xBF);
-    busWrite(0xFF20, 0xFF);
-    busWrite(0xFF21, 0x00);
-    busWrite(0xFF22, 0x00);
-
-    busWrite(0xFF23, 0xBF);
-    busWrite(0xFF24, 0x77);
-    busWrite(0xFF25, 0xF3);
-    busWrite(0xFF26, 0xF1);
-    busWrite(0xFF40, 0x91);
-
-    busWrite(0xFF41, 0x85);
-    busWrite(0xFF42, 0x00);
-    busWrite(0xFF43, 0x00);
-    busWrite(0xFF44, 0x00);
-    busWrite(0xFF45, 0x00);
-
-    busWrite(0xFF46, 0xFF);
-    busWrite(0xFF47, 0xFC);
-    // busWrite(0xFF48, 0x00); undefined
-    // busWrite(0xFF49, 0x00); undefined
-    busWrite(0xFF4A, 0x00);
-    busWrite(0xFF4B, 0x00);
-
     cpu_ctx.registers = registers;
 }
 
 void cpuStep()
 {
     // Decode
-    if (cpu_ctx.cbInst == false)
-    {
-        cpu_ctx.cur_opcode = busRead(cpu_ctx.registers.pc++);
+    cpu_ctx.cur_opcode = busRead(cpu_ctx.registers.pc++);
+    if (cpu_ctx.cur_opcode != 0xCB)
+    {        
         cpu_ctx.currentInstruction = instruction_by_opcode(cpu_ctx.cur_opcode);
     } 
     else
-    {
-        cpu_ctx.cur_opcode = (u8)cpu_ctx.fetched_data;
+    {   
+        cpu_ctx.cur_opcode = busRead(cpu_ctx.registers.pc++);
         cpu_ctx.currentInstruction = CB_instruction_by_opcode(cpu_ctx.cur_opcode);
-        cpu_ctx.cbInst = false;
     }
     
     // Fetch
@@ -126,44 +98,73 @@ void cpuStep()
     
 }
 
-void cpu_halted()
+void cpuHalted()
 {
-    // TO DO...//
-    u8 ifRegister = busRead(0xFF0F);
-    u8 ieRegister = busRead(0xFFFF);
-    u8 andi = ifRegister & ieRegister;
-    while (andi == 0)
+    u8 registerIF = busRead(0xFF0F) & 0x1F;
+    u8 registerIE = busRead(0xFFFF) & 0x1F;
+    bool interruptProc = registerIF & registerIE ? true:false;
+    
+    if (cpu_ctx.int_master_enabled)
     {
-        // Espero por alguna interrupcion
-        ifRegister = busRead(0xFF0F);
-        ieRegister = busRead(0xFFFF);
-        andi = ifRegister & ieRegister;
+        while(!interruptProc)
+        {
+            registerIF = busRead(0xFF0F) & 0x1F;
+            registerIE = busRead(0xFFFF) & 0x1F;
+            interruptProc = registerIF & registerIE ? true:false;
+        }
+    
+        interruptCheck(&cpu_ctx);
+        // cpu_run ?
     }
-
-    // si alguna interrupcion pide ser atendida y ademas se permite el handleo, se termina el halt
-    cpu_ctx.halted = false;
-    interrputHandling();
-}
-
-void interrputHandling()
-{
-    printf("TO DO");
+    else
+    {
+        if (interruptProc)
+        {
+            // HALT BUG
+        }
+        else
+        {
+            while(!interruptProc)
+            {
+                registerIF = busRead(0xFF0F) & 0x1F;
+                registerIE = busRead(0xFFFF) & 0x1F;
+                interruptProc = registerIF & registerIE ? true:false;
+            }
+        }
+        
+        
+    }
 }
 
 void cpuRun()
 {   
+    cantExec = 0;
     while (!cpu_ctx.halted)
     {   
-        oldPC = cpu_ctx.registers.pc;
-        
-        cpuStep();  // Se ejecuta 1 instruccion
-
+        cantExec ++;
         testLog();
+        if (cantExec == 31465) {/*hay un call a16 en 16461, en 16469 diverge mi emu*/ noOP();}
+
+        cpuStep();  // Se ejecuta 1 instruccion
         
-        // Leer de port SC
+        if (cpu_ctx.activando_IME) 
+        {
+            if (cpu_ctx.delayPatriotico == 0)
+            {
+                cpu_ctx.int_master_enabled = true;
+                cpu_ctx.activando_IME = false;
+            } else
+            {
+                cpu_ctx.delayPatriotico --;
+            }
+        }
+
+        interruptCheck(&cpu_ctx);
+
+        // Leer de port SC (Tests de Blargg)
         if (busRead(0xFF02) == 0x81)
         {
-            noOP();
+            //noOP();
             putchar(busRead(0xFF01));
             busWrite(0xFF02, 0); //limpio el i/o port
         }
@@ -172,9 +173,4 @@ void cpuRun()
     
     // Si se llega aca es porque la cpu se halteo
     //cpu_halted();
-}
-
-void noOP()
-{
-    int a = 67;
 }

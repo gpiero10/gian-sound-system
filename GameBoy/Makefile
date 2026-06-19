@@ -10,7 +10,8 @@ SRC = \
 	src/cpu_proc.c \
 	src/cpu_utils.c \
 	src/devices.c \
-	src/instrucciones.c
+	src/instrucciones.c \
+	src/interrupciones.c
 
 TEST_SRC = src/tests.c
 
