@@ -2,8 +2,7 @@
 
 cpu_context cpu_ctx;
 extern FILE* testLogFile;
-
-u64 cantExec;
+u64 executions;
 
 void testLog()
 {
@@ -46,7 +45,6 @@ void testLog()
         busRead(curPC + 3)
     );
 }
-void noOP(){ int a = 67;}
 
 void cpu_init()
 {
@@ -138,12 +136,11 @@ void cpuHalted()
 
 void cpuRun()
 {   
-    cantExec = 0;
+    executions = 0;
     while (!cpu_ctx.halted)
     {   
-        cantExec ++;
+        executions ++;
         testLog();
-        if (cantExec == 31465) {/*hay un call a16 en 16461, en 16469 diverge mi emu*/ noOP();}
 
         cpuStep();  // Se ejecuta 1 instruccion
         
@@ -171,6 +168,4 @@ void cpuRun()
 
     }
     
-    // Si se llega aca es porque la cpu se halteo
-    //cpu_halted();
 }

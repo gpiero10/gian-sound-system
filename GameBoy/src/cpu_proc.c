@@ -95,6 +95,12 @@ void checkHalfCarryFlag8Bits(u8 sum1, u8 sum2, cpu_context * ctx)
     u8 halfCarryFlag = ((sum1 & 0xF) + (sum2 & 0xF)) > 0xF ? 1:0;
     setFlag(ctx, F_HalfCarry, halfCarryFlag);
 }
+void checkHalfCarryFlag8Bits3(u8 sum1, u8 sum2, u8 sum3, cpu_context * ctx)
+{
+    // version 3 operandos
+    u8 halfCarryFlag = ((sum1 & 0xF) + (sum2 & 0xF) + (sum3 & 0xF)) > 0xF ? 1:0;
+    setFlag(ctx, F_HalfCarry, halfCarryFlag);
+}
 void checkZeroFlag8Bits(u8 suma, cpu_context *ctx)
 {
     u8 zeroFlag = suma == 0 ? 1 : 0;
@@ -105,14 +111,31 @@ void checkCarryFlag8Bits(u16 suma, cpu_context *ctx)
     u8 carryFlag = suma > 0xFF ? 1 : 0;
     setFlag(ctx, F_CARRY, carryFlag);
 }
+void checkCarryFlag16Bits(u16 src1, u16 src2, cpu_context *ctx)
+{
+    u8 carryFlag = (((src1 & 0xFF) + (src2 & 0xFF)) > 0xFF) ? 1 : 0;
+    setFlag(ctx, F_CARRY, carryFlag);
+}
 void checkHalfBorrow8Bits(u8 src, u8 minuendo, cpu_context *ctx)
 {
     u8 halfBorrow = ((src & 0xF) < (minuendo & 0xF)) ? 1 : 0;
     setFlag(ctx, F_HalfCarry, halfBorrow);
 }
+void checkHalfBorrow8Bits3(u8 src, u8 minuendo1, u8 minuendo2, cpu_context *ctx)
+{
+    // version 3 operandos
+    u8 halfBorrow = ((src & 0xF) < ((minuendo1 & 0xF) + (minuendo2 & 0xF))) ? 1 : 0;
+    setFlag(ctx, F_HalfCarry, halfBorrow);
+}
 void checkBorrow8Bits(u8 src, u8 minuendo, cpu_context *ctx)
 {
     u8 borrow = (src < minuendo) ? 1 : 0;
+    setFlag(ctx, F_CARRY, borrow);
+}
+void checkBorrow8Bits3(u8 src, u8 minuendo1, u8 minuendo2, cpu_context *ctx)
+{
+    // ver 3 operandos
+    u8 borrow = (src < minuendo1 + minuendo2) ? 1 : 0;
     setFlag(ctx, F_CARRY, borrow);
 }
 // Fin Utilidades
@@ -136,9 +159,33 @@ void proc_ld(cpu_context* ctx)
     }
     else
     {
-        writeCPURegister(ctx->currentInstruction->reg_1, ctx->fetched_data);   
+        if (ctx->currentInstruction->mode == AM_HL_SPR)
+        {
+            // LD HL,SP+e8
+            // Add the signed value e8 to SP and copy the result in HL.
+            // Cycles: 3
+            // Bytes: 2
+            // Flags:
+            // Z    0
+            // N    0
+            // H    Set if overflow from bit 3.
+            // C    Set if overflow from bit 7.
+            u16 op1 = readCPURegister(RT_SP);
+            i8 op2 = (i8)ctx->fetched_data;
+            u16 sum = op1 + op2;
+            writeCPURegister(RT_HL, sum);
+
+            // Flags
+            checkHalfCarryFlag8Bits(op1, op2, ctx);
+            checkCarryFlag16Bits(op1, op2, ctx);
+            setFlags(ctx, -1, -1, 0, 0);
+        }
+        else
+        {
+            writeCPURegister(ctx->currentInstruction->reg_1, ctx->fetched_data);   
+        }
     }   
-    // No flags affected
+    // No flags affected (except in ld hlm sp+e8)
 }
 
 void proc_jr(cpu_context* ctx)
@@ -374,7 +421,9 @@ void proc_add(cpu_context* ctx)
             // C   Set if overflow from bit 7.
 
             // flags
-            checkCarryFlag8Bits(suma, ctx);
+            u8 carry = (((dstVal & 0xFF) + (ctx->fetched_data & 0xFF)) > 0xFF) ? 1:0;
+            setFlag(ctx, F_CARRY, carry);
+            
             checkHalfCarryFlag8Bits(dstVal, (i8)ctx->fetched_data, ctx);
 
             setFlag(ctx, F_ZERO, 0);
@@ -590,7 +639,7 @@ void proc_adc(cpu_context* ctx)
     checkCarryFlag8Bits(suma, ctx);
     checkZeroFlag8Bits(suma, ctx);
     setFlag(ctx, F_N_Subtract, 0);
-    checkHalfCarryFlag8Bits(regA + carry, ctx->fetched_data, ctx);
+    checkHalfCarryFlag8Bits3(regA, ctx->fetched_data, carry, ctx);
 }
 
 void proc_sbc(cpu_context* ctx)
@@ -616,8 +665,8 @@ void proc_sbc(cpu_context* ctx)
     //Flags
     checkZeroFlag8Bits(resta, ctx);
     setFlag(ctx, F_N_Subtract, 1);
-    checkHalfBorrow8Bits(regA, (u8)(minuendo), ctx);
-    checkBorrow8Bits(regA, minuendo, ctx);
+    checkHalfBorrow8Bits3(regA, (u8)ctx->fetched_data, carry, ctx);
+    checkBorrow8Bits3(regA, ctx->fetched_data, carry, ctx);
 }
 
 void proc_and(cpu_context* ctx)
@@ -713,6 +762,9 @@ void proc_pop(cpu_context* ctx)
     u8 low = busRead(ctx->registers.sp ++);
     u8 high = busRead(ctx->registers.sp ++);
     
+    if(ctx->currentInstruction->reg_1 == RT_AF)
+    { low &= 0xF0; }
+
     writeCPURegister(ctx->currentInstruction->reg_1, ext16bits(high, low));
 
     // Flags
@@ -1191,7 +1243,8 @@ void proc_bit(cpu_context *ctx)
     }
 
     // Seteo Flags
-    setFlags(ctx, -1, 1, 0, bit);
+    checkZeroFlag8Bits(bit, ctx);
+    setFlags(ctx, -1, 1, 0, -1);
 }
 
 void proc_res(cpu_context *ctx)

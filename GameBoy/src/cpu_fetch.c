@@ -102,9 +102,7 @@ void cpuFetch()
         break;
 
     case AM_HL_SPR:
-        cpu_ctx.dest_is_mem = true;
-        cpu_ctx.mem_dest = readCPURegister(cpu_ctx.currentInstruction->reg_1);
-        cpu_ctx.fetched_data = cpu_ctx.registers.sp;
+        cpu_ctx.fetched_data = busRead(cpu_ctx.registers.pc++);
         break;
 
     case AM_D16:
@@ -148,4 +146,5 @@ void cpuFetch()
     default:
         break;
     }
+    
 }
