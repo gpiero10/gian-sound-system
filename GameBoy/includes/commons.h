@@ -55,3 +55,6 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 typedef int8_t i8;
 typedef int16_t i16;
+
+#define max(x,y) (x > y ? x:y)
+#define min(x,y) (x < y ? x:y)

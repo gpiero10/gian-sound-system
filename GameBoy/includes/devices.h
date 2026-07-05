@@ -11,9 +11,9 @@
 // FF80	FFFE	High RAM (HRAM)	
 // FFFF	FFFF	Interrupt Enable register (IE)
 #pragma once
-
-#include "commons.h"
-#include "cartridge.h"
+#include <commons.h>
+#include <cartridge.h>
+#include <timer.h>
 
 #define cartridgeStart 0x0
 #define cartridgeEnd 0x7FFF
@@ -90,7 +90,7 @@ typedef struct
     uint8_t serialTransfer[2]; 
 
     // $FF04	$FF07	DMG	Timer and divider
-    uint8_t timerAndDivider[4];
+    timer_t* timer;
 
     // $FF0F		    DMG	Interrupts      
     uint8_t interrupts; //  IF	Interrupt flag	R/W	All

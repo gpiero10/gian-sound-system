@@ -21,6 +21,5 @@ typedef enum {
     bit_joypad
 } interrupt_bit;
 
+void setInterruptFlag(interrupt_bit interrupt);
 void interruptCheck(cpu_context *ctx);
-
-

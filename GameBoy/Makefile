@@ -11,7 +11,9 @@ SRC = \
 	src/cpu_utils.c \
 	src/devices.c \
 	src/instrucciones.c \
-	src/interrupciones.c
+	src/interrupciones.c \
+	src/timer.c \
+	src/emu.c
 
 TEST_SRC = src/tests.c
 

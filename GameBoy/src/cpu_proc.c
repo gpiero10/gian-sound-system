@@ -150,11 +150,19 @@ void proc_ld(cpu_context* ctx)
     {
         if (is16BitsRegister(ctx->currentInstruction->reg_2))
         {
-            busWrite16(ctx->mem_dest, ctx->fetched_data);
+            u8 low = byteBajoDeWord(ctx->fetched_data);
+            u8 high = byteAltoDeWord(ctx->fetched_data);
+            
+            busWrite(ctx->mem_dest, low);
+            emu_cycles(1); // niggericious
+
+            busWrite(ctx->mem_dest+1, high);
+            emu_cycles(1); // niggericious
         }
         else
         {
             busWrite(ctx->mem_dest, ctx->fetched_data);
+            emu_cycles(1); // niggericious
         }   
     }
     else
@@ -186,55 +194,44 @@ void proc_ld(cpu_context* ctx)
         }
     }   
     // No flags affected (except in ld hlm sp+e8)
+
+    if ((ctx->currentInstruction->reg_1 == RT_SP) && (ctx->currentInstruction->reg_2 == RT_HL)) emu_cycles(1); // niggericious
+    
 }
 
 void proc_jr(cpu_context* ctx)
 {
     i8 relativeJump = (i8)ctx->fetched_data;
     
-    //printf("JR: antes PC=%04X, offset leido=%02X\n", ctx->registers.pc, relativeJump);
-    // ... ejecutar el JR ...
-    
     switch (ctx->currentInstruction->cond)
     {
         case CT_NONE:
-            ctx->registers.pc += relativeJump;
             break;
 
         case CT_C:
-            if (bitFlagCarry(ctx->registers.f))
-            {
-                ctx->registers.pc += relativeJump;
-            }
+            if (!bitFlagCarry(ctx->registers.f)) return;
             break;
 
         case CT_NC:
-            if (!bitFlagCarry(ctx->registers.f))
-            {
-                ctx->registers.pc += relativeJump;
-            }
+            if (bitFlagCarry(ctx->registers.f)) return;
             break;
 
         case CT_Z:
-            if (bitFlagZero(ctx->registers.f))
-            {
-                ctx->registers.pc += relativeJump;
-            }
+            if (!bitFlagZero(ctx->registers.f)) return;
             break;
 
         case CT_NZ:
-            if (!bitFlagZero(ctx->registers.f))
-            {
-                ctx->registers.pc += relativeJump;
-            }
+            if (bitFlagZero(ctx->registers.f)) return;
             break;
 
         default:
             break;
     }
+    // Si se llega aca, la condition se cumple -> es taken
+    ctx->registers.pc += relativeJump;
 
-    //printf("JR: despues PC=%04X\n", ctx->registers.pc);
-
+    // Emu cycles: Al ser taken, demora un poco mas
+    if (ctx->currentInstruction->cond != CT_NONE) emu_cycles(1);
 }
 
 void proc_jp(cpu_context* ctx)
@@ -246,45 +243,37 @@ void proc_jp(cpu_context* ctx)
     switch (ctx->currentInstruction->type)
     {
         case IN_JP:
-            switch (ctx->currentInstruction->cond)
             {
-            case CT_NONE:
+                switch (ctx->currentInstruction->cond)
+                {
+                case CT_NONE:
+                    break;
+                
+                case CT_C:
+                    if (!getFlag(ctx, F_CARRY)) return;
+                    break;
+                
+                case CT_NC:
+                    if (getFlag(ctx, F_CARRY)) return;
+                    break;
+
+                case CT_Z:
+                    if (!getFlag(ctx, F_ZERO)) return;
+                    break;
+
+                case CT_NZ:
+                    if (getFlag(ctx, F_ZERO)) return;
+                    break;
+
+                default:
+                    break;
+                }
                 ctx->registers.pc = ctx->fetched_data;
-                break;
-            
-            case CT_C:
-                if (getFlag(ctx, F_CARRY))
-                {
-                    ctx->registers.pc = ctx->fetched_data;
-                }
-                break;
-            
-            case CT_NC:
-                if (!getFlag(ctx, F_CARRY))
-                {
-                    ctx->registers.pc = ctx->fetched_data;
-                }
-                break;
 
-            case CT_Z:
-                if (getFlag(ctx, F_ZERO))
-                {
-                    ctx->registers.pc = ctx->fetched_data;
-                }
-                break;
-
-            case CT_NZ:
-                if (!getFlag(ctx, F_ZERO))
-                {
-                    ctx->registers.pc = ctx->fetched_data;
-                }
-                break;
-
-            default:
-                break;
+                if (ctx->currentInstruction->cond != CT_NONE) emu_cycles(1);
             }
             break; 
-        
+
         case IN_JPHL:
             ctx->registers.pc = readCPURegister(ctx->currentInstruction->reg_1);
             break;
@@ -304,9 +293,11 @@ void proc_inc(cpu_context* ctx)
     u16 src;
     if (ctx->dest_is_mem)
     {
-        src = busRead(ctx->mem_dest); 
+        src = ctx->fetched_data; 
         val = src + 1;
+        
         busWrite(ctx->mem_dest, (u8)val);
+        emu_cycles(1); // niggericious
     }
     else
     {
@@ -342,9 +333,11 @@ void proc_dec(cpu_context* ctx)
     u16 val;
     if (ctx->dest_is_mem)
     {
-        src = busRead(ctx->mem_dest);
+        src = ctx->fetched_data;
         val = src - 1; 
+        
         busWrite(ctx->mem_dest,  val);
+        emu_cycles(1); // niggericious
     }
     else
     {
@@ -615,7 +608,7 @@ void proc_halt(cpu_context* ctx)
 
     // Implementacion no seria pero necesaria para los test
     ctx->halted = true;
-
+    cpuHalted();
 }
 
 void proc_adc(cpu_context* ctx)
@@ -760,7 +753,10 @@ void proc_pop(cpu_context* ctx)
     // C    Set from bit 4 of the popped low byte.
 
     u8 low = busRead(ctx->registers.sp ++);
+    emu_cycles(1); // niggericious
+
     u8 high = busRead(ctx->registers.sp ++);
+    emu_cycles(1); // niggericious
     
     if(ctx->currentInstruction->reg_1 == RT_AF)
     { low &= 0xF0; }
@@ -803,9 +799,12 @@ void proc_push(cpu_context* ctx)
     if(ctx->currentInstruction->reg_1 == RT_AF)
     { low &= 0xF0; } /*Esto porque solo interesan los flags, osea los 4 bits mas altos de F*/ 
     
-    busWrite(--ctx->registers.sp, high);
-    busWrite(--ctx->registers.sp, low);    
+    emu_cycles(1); // niggericious
 
+    busWrite(--ctx->registers.sp, high);
+    emu_cycles(1); // niggericious
+    busWrite(--ctx->registers.sp, low);    
+    emu_cycles(1); // niggericious
 }
 
 void proc_ret(cpu_context* ctx)
@@ -842,9 +841,13 @@ void proc_ret(cpu_context* ctx)
     }
 
     u8 low = busRead(ctx->registers.sp ++);
+    emu_cycles(1); // niggericious
+    
     u8 high = busRead(ctx->registers.sp ++);
+    emu_cycles(1); // niggericious
     
     writeCPURegister(RT_PC, ext16bits(high, low));
+    emu_cycles(1); // niggericious
 }
 
 void proc_cb(cpu_context* ctx) 
@@ -898,11 +901,16 @@ void proc_call(cpu_context* ctx)
 
     // Si se cumple la condicion, entonces el return no sucede. CT_NONE es trivial
 
+    emu_cycles(1); // niggericious
+
     busWrite(--ctx->registers.sp, byteAltoDeWord(ctx->registers.pc));
+    emu_cycles(1); // niggericious
 
     busWrite(--ctx->registers.sp, byteBajoDeWord(ctx->registers.pc));
+    emu_cycles(1); // niggericious
     
     ctx->registers.pc = ctx->fetched_data;
+
 }
 
 void proc_reti(cpu_context* ctx)
@@ -932,6 +940,7 @@ void proc_ldh(cpu_context *ctx)
     if (ctx->dest_is_mem)
     {
         busWrite(ctx->mem_dest, ctx->fetched_data);
+        emu_cycles(1); // niggericious
     }
     else 
     {
@@ -972,28 +981,31 @@ void proc_rlc(cpu_context *ctx)
 {
     // RLC r8
     // RLC [HL]
+    // ┏━ Flags ━┓   ┏━━━━━━ [HL] ━━━━━┓
+    // ┃    C   ←╂─┬─╂─ b7 ← ... ← b0 ←╂─┐
+    // ┗━━━━━━━━━┛ │ ┗━━━━━━━━━━━━━━━━━┛ │
+    //             └─────────────────────┘
+
     u8 carry;
     u8 byte;
-    if (ctx->dest_is_mem)
-    {
-        // ┏━ Flags ━┓   ┏━━━━━━ [HL] ━━━━━┓
-        // ┃    C   ←╂─┬─╂─ b7 ← ... ← b0 ←╂─┐
-        // ┗━━━━━━━━━┛ │ ┗━━━━━━━━━━━━━━━━━┛ │
-        //             └─────────────────────┘
-        byte = ctx->fetched_data;
-        carry = bit7(byte);
-        byte = (byte << 1) | carry;
 
+    if (ctx->dest_is_mem) 
+    { byte = ctx->fetched_data; }
+    else
+    { byte = readCPURegister(ctx->currentInstruction->reg_1); }
+
+    carry = bit7(byte);
+    byte = (byte << 1) | carry; 
+
+    emu_cycles(1); // niggericious
+
+    if (ctx->dest_is_mem) 
+    { 
         busWrite(ctx->mem_dest, byte);
+        emu_cycles(1); // niggericious 
     }
     else
-    {
-        byte = readCPURegister(ctx->currentInstruction->reg_1);
-        carry = bit7(byte);
-        byte = (byte << 1) | carry;              
-        
-        writeCPURegister(ctx->currentInstruction->reg_1, byte);
-    }
+    { writeCPURegister(ctx->currentInstruction->reg_1, byte); }
 
     //Flags
     checkZeroFlag8Bits(byte, ctx);
@@ -1016,7 +1028,10 @@ void proc_rrc(cpu_context *ctx)
         carry = byte & 0x01;
         byte = (byte >> 1) | (carry << 7);
 
+        emu_cycles(1); // niggericious
+
         busWrite(ctx->mem_dest, byte);
+        emu_cycles(1); // niggericious
     }
     else
     {
@@ -1024,6 +1039,8 @@ void proc_rrc(cpu_context *ctx)
         carry = byte & 0x01;
         byte = (byte >> 1) | (carry << 7);              
         
+        emu_cycles(1); // niggericious
+
         writeCPURegister(ctx->currentInstruction->reg_1, byte);
     }
 
@@ -1036,7 +1053,6 @@ void proc_rl(cpu_context *ctx)
 {
     // RL r8
     // RL [HL] 
-
     //Rotate register A left, through the carry flag.
     //   ┏━ Flags ━┓ ┏━━━━ r8/[HL] ━━━━┓
     // ┌─╂─   C   ←╂─╂─ b7 ← ... ← b0 ←╂─┐
@@ -1052,7 +1068,10 @@ void proc_rl(cpu_context *ctx)
         bit7 = bit7(byte);
         byte = byte << 1 | bitCarry;
 
+        emu_cycles(1); // niggericious
+
         busWrite(ctx->mem_dest, byte);
+        emu_cycles(1); // niggericious
     }
     else
     {
@@ -1061,6 +1080,8 @@ void proc_rl(cpu_context *ctx)
         bit7 = bit7(byte);
         byte = byte << 1 | bitCarry;        
         
+        emu_cycles(1); // niggericious
+
         writeCPURegister(ctx->currentInstruction->reg_1, byte);
     }
 
@@ -1086,7 +1107,10 @@ void proc_rr(cpu_context *ctx)
         bit0 = byte & 0x01;
         byte = byte >> 1 | bitCarry << 7;
 
+        emu_cycles(1); // niggericious
+
         busWrite(ctx->mem_dest, byte);
+        emu_cycles(1); // niggericious
     }
     else
     {
@@ -1095,6 +1119,8 @@ void proc_rr(cpu_context *ctx)
         bit0 = byte & 0x01;
         byte = byte >> 1 | bitCarry << 7;        
         
+        emu_cycles(1); // niggericious
+
         writeCPURegister(ctx->currentInstruction->reg_1, byte);
     }
 
@@ -1118,13 +1144,18 @@ void proc_sla(cpu_context *ctx)
         bit7 = bit7(byte);
         byte = byte << 1;
 
+        emu_cycles(1); // niggericious
+
         busWrite(ctx->mem_dest, byte);
+        emu_cycles(1); // niggericious
     }
     else
     {
         byte = readCPURegister(ctx->currentInstruction->reg_1);
         bit7 = bit7(byte);
         byte = byte << 1;        
+
+        emu_cycles(1); // niggericious
         
         writeCPURegister(ctx->currentInstruction->reg_1, byte);
     }
@@ -1151,7 +1182,10 @@ void proc_sra(cpu_context *ctx)
         bit0 = byte & 0x01;
         byte = byte >> 1 | bit7 << 7;
 
+        emu_cycles(1); // niggericious
+
         busWrite(ctx->mem_dest, byte);
+        emu_cycles(1); // niggericious
     }
     else
     {
@@ -1160,6 +1194,8 @@ void proc_sra(cpu_context *ctx)
         bit0 = byte & 0x01;
         byte = byte >> 1 | bit7 << 7;        
         
+        emu_cycles(1); // niggericious
+
         writeCPURegister(ctx->currentInstruction->reg_1, byte);
     }
 
@@ -1177,7 +1213,11 @@ void proc_swap(cpu_context *ctx)
         u8 upper = (ctx->fetched_data & 0xF0) >> 4;
         u8 lower = ctx->fetched_data & 0x0F;
         inv = lower << 4 | upper;
+
+        emu_cycles(1); // niggericious
+
         busWrite(ctx->mem_dest, inv);
+        emu_cycles(1); // niggericious
     }
     else
     {
@@ -1185,6 +1225,9 @@ void proc_swap(cpu_context *ctx)
         u8 upper = (reg & 0xF0) >> 4;
         u8 lower = reg & 0x0F;
         inv = lower << 4 | upper;
+
+        emu_cycles(1); // niggericious
+
         writeCPURegister(ctx->currentInstruction->reg_1, inv);
     }
     
@@ -1209,7 +1252,10 @@ void proc_srl(cpu_context *ctx)
         bit0 = byte & 0x01;
         byte = (byte >> 1) & 0x7F;
 
+        emu_cycles(1); // niggericious
+
         busWrite(ctx->mem_dest, byte);
+        emu_cycles(1); // niggericious
     }
     else
     {
@@ -1217,6 +1263,8 @@ void proc_srl(cpu_context *ctx)
         bit0 = byte & 0x01;
         byte = (byte >> 1) & 0x7F;        
         
+        emu_cycles(1); // niggericious
+
         writeCPURegister(ctx->currentInstruction->reg_1, byte);
     }
 
@@ -1242,6 +1290,8 @@ void proc_bit(cpu_context *ctx)
         bit = (reg & mask) >> ind;
     }
 
+    emu_cycles(1); // niggericious
+
     // Seteo Flags
     checkZeroFlag8Bits(bit, ctx);
     setFlags(ctx, -1, 1, 0, -1);
@@ -1258,12 +1308,19 @@ void proc_res(cpu_context *ctx)
     if (ctx->dest_is_mem) // En este caso, me sirve para saber de donde cargo el byte 
     {
         newByte = ctx->fetched_data & mask;
+
+        emu_cycles(1); // niggericious
+
         busWrite(ctx->mem_dest, newByte);
+        emu_cycles(1); // niggericious
     }
     else
     {
         u8 reg = readCPURegister(ctx->currentInstruction->reg_1);
         newByte = (reg & mask);
+
+        emu_cycles(1); // niggericious
+
         writeCPURegister(ctx->currentInstruction->reg_1, newByte);
     }
 
@@ -1281,12 +1338,19 @@ void proc_set(cpu_context *ctx)
     if (ctx->dest_is_mem) // En este caso, me sirve para saber de donde cargo el byte 
     {
         newByte = ctx->fetched_data | mask;
+
+        emu_cycles(1); // niggericious
+
         busWrite(ctx->mem_dest, newByte);
+        emu_cycles(1); // niggericious
     }
     else
     {
         u8 reg = readCPURegister(ctx->currentInstruction->reg_1);
         newByte = (reg | mask);
+        
+        emu_cycles(1); // niggericious
+    
         writeCPURegister(ctx->currentInstruction->reg_1, newByte);
     }
 

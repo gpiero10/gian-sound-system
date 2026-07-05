@@ -1,7 +1,8 @@
 #pragma once
 
-#include "commons.h"
-#include "devices.h"
+#include <commons.h>
+#include <devices.h>
+#include <timer.h>
 
 // Mapa de Memoria
 // 0x0000–0x7FFF → ROM
@@ -12,6 +13,7 @@
 
 
 u8 busRead(u16 addr);
-u16 busRead16(u16 addr);
+//u16 busRead16(u16 addr);
 void busWrite(u16 addr, u8 val);
-void busWrite16(u16 addr, u16 val);
+//void busWrite16(u16 addr, u16 val);
+void timerTick();

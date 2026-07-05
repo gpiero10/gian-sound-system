@@ -53,6 +53,7 @@ void cpu_init()
     cpu_ctx.activando_IME = false;
     cpu_ctx.delayPatriotico = -1;
     cpu_ctx.int_master_enabled = false;
+    cpu_ctx.running = true; // se prende la gayboy
 
     // Inicializacion Registros del cpu y del hardware (control, I/O, etc)
     cpu_registers registers;
@@ -72,11 +73,15 @@ void cpu_init()
 
     cpu_ctx.registers = registers;
 }
-
+ 
 void cpuStep()
-{
-    // Decode
+{   
+    // Fetch
     cpu_ctx.cur_opcode = busRead(cpu_ctx.registers.pc++);
+
+    if (cpu_ctx.halt_Bug) {cpu_ctx.registers.pc --; cpu_ctx.halt_Bug = false;} //HALT BUG
+
+    // Decode
     if (cpu_ctx.cur_opcode != 0xCB)
     {        
         cpu_ctx.currentInstruction = instruction_by_opcode(cpu_ctx.cur_opcode);
@@ -84,16 +89,17 @@ void cpuStep()
     else
     {   
         cpu_ctx.cur_opcode = busRead(cpu_ctx.registers.pc++);
+        emu_cycles(1); // niggericious
+
         cpu_ctx.currentInstruction = CB_instruction_by_opcode(cpu_ctx.cur_opcode);
     }
     
-    // Fetch
+    // Fetch operands
     cpuFetch();
 
     // Execute
     in_proc processor = getProcessorForCurrentInst(&cpu_ctx);
     processor(&cpu_ctx);
-    
 }
 
 void cpuHalted()
@@ -111,14 +117,17 @@ void cpuHalted()
             interruptProc = registerIF & registerIE ? true:false;
         }
     
-        interruptCheck(&cpu_ctx);
-        // cpu_run ?
+        interruptCheck(&cpu_ctx); // interrupt handled
+        // cpu_run ?    // back to execution
     }
     else
     {
         if (interruptProc)
         {
-            // HALT BUG
+            // HALT BUG, pc fails to be incremented
+            cpu_ctx.halt_Bug = true;
+            
+            // back to execution
         }
         else
         {
@@ -128,22 +137,25 @@ void cpuHalted()
                 registerIE = busRead(0xFFFF) & 0x1F;
                 interruptProc = registerIF & registerIE ? true:false;
             }
+            // cpu wakes up, interrupt isnt handled, back to execution
         }
-        
-        
     }
+    
+    cpu_ctx.halted = false; // in all cases
+
+    // efectively back to execution
 }
 
 void cpuRun()
 {   
     executions = 0;
-    while (!cpu_ctx.halted)
+    while (cpu_ctx.running)
     {   
-        executions ++;
-        testLog();
+        executions++; testLog(); // debug
 
         cpuStep();  // Se ejecuta 1 instruccion
-        
+        emu_cycles(1);
+
         if (cpu_ctx.activando_IME) 
         {
             if (cpu_ctx.delayPatriotico == 0)
@@ -156,16 +168,12 @@ void cpuRun()
             }
         }
 
-        interruptCheck(&cpu_ctx);
+        interruptCheck(&cpu_ctx); // se checkea interrupciones
 
         // Leer de port SC (Tests de Blargg)
-        if (busRead(0xFF02) == 0x81)
-        {
-            //noOP();
-            putchar(busRead(0xFF01));
-            busWrite(0xFF02, 0); //limpio el i/o port
+        if (busRead(0xFF02) == 0x81) {putchar(busRead(0xFF01)); busWrite(0xFF02, 0);
         }
-
+        
+        
     }
-    
 }

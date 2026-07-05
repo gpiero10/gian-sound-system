@@ -1,5 +1,6 @@
 #include "cartridge.h"
 
+static u8 data[8*1024*1024]; // 8mib de data que vive durante la ejecucion del programa
 
 const License licenses[] = {
     {"00", "None"},
@@ -301,7 +302,8 @@ u8 cartridge(cartridge_t* cartucho)
 
     //Pido memo para todo el rom (.gb)
     uint32_t tamañoRom = romSizeCalc(cartucho->header.romSize);
-    cartucho->romData = malloc(tamañoRom);
+    //cartucho->romData = malloc(tamañoRom);
+    cartucho->romData = data;
     
     //cargo el rom en la memo del struct que representa al cartucho
     fseek(rom, 0, SEEK_SET);
@@ -392,48 +394,6 @@ void cartridgeTypeDefinitor(cartridge_t *cartucho)
             break;
     }
 }
-
-/*
-u8 readCartridge(uint16_t addr)
-{
-    if (between(0x0, 0x3FFF, addr)) //Banco 0
-    {
-        return cartucho.romData[addr];
-    }
-    else if(between(0x4000, 0x7FFF, addr))// Banco N ("intercambiable") 
-    {
-        // caso de cartucho con MBC
-        uint16_t bankOffset = (cartucho.activeBankROM - 1)*(1<<14);
-        return cartucho.romData[bankOffset + addr];
-    }
-    else if(between(0xA000, 0xBFFF, addr)) //dir extRam, if any (8kib)
-    {
-        if (cartucho.externalRamPresent == 1)
-        {
-            uint16_t bankOffset = (cartucho.activeBankRAM - 1)*(1<<13);
-            return cartucho.ramData[bankOffset + addr - 0xA000];
-        }
-    }
-    
-    return -1;
-}
-void writeCartridge(uint16_t addr, uint8_t value)
-{
-    if (between(0x0, 0x7FFF, addr)) // Direccion de ROM
-    {
-        // No se puede escribir en ROM pero, se configura el MBC en caso de haberlo
-    }
-    else if(between(0xA000, 0xBFFF, addr)) //dir extRam, if any (8kib)
-    {
-        if (cartucho.externalRamPresent == 1)
-        {
-            u16 bankOffset = (cartucho.activeBankRAM - 1)*(1<<13);
-            cartucho.romData[bankOffset + addr - 0xA000] = value;
-        }
-    }
-    return;
-}
-*/
 
 void initCartridge(char* gameROM, cartridge_t* cartucho)
 {

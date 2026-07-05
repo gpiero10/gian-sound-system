@@ -1,6 +1,16 @@
 #include <interrupciones.h>
 #include <cpu.h>
 
+void setInterruptFlag(interrupt_bit interrupt)
+{   
+    // FF0F — IF: Interrupt flag
+    //       7	6	5	4	    3	    2	    1	0
+    // IF		        Joypad	Serial	Timer	LCD	VBlank
+    
+    u8 interruptFlags = busRead(0xFF0F) | (1 << interrupt);
+    busWrite(0xFF0F, interruptFlags);
+}
+
 void pushPC(cpu_context* ctx)
 {
     // push pc
@@ -8,8 +18,9 @@ void pushPC(cpu_context* ctx)
     u8 high = byteAltoDeWord(reg);
     u8 low = byteBajoDeWord(reg);
     busWrite(--ctx->registers.sp, high);
+    emu_cycles(1);
     busWrite(--ctx->registers.sp, low);
-    
+    emu_cycles(1);
 }
 
 void jumpToHandler(cpu_context* ctx, u16 addr, interrupt_bit interruptIndex)
@@ -21,11 +32,15 @@ void jumpToHandler(cpu_context* ctx, u16 addr, interrupt_bit interruptIndex)
     u8 interruptFlags = busRead(0xFF0F) & ~(1 << interruptIndex);
     busWrite(0xFF0F, interruptFlags);
     
+    // Interrupt Service Routine
+    emu_cycles(2);
+
     // pusheo PC
     pushPC(ctx);
 
     // Salto al handler Correspondiente
     ctx->registers.pc = addr;
+    emu_cycles(1);
 }
 
 void intVBlankHandler(cpu_context* ctx) {jumpToHandler(ctx, 0x40, bit_vblank);}

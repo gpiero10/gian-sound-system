@@ -4,6 +4,7 @@
 #include <bus.h>
 #include <instrucciones.h>
 #include <interrupciones.h>
+#include <timer.h>
 
 typedef enum
 {
@@ -48,7 +49,10 @@ typedef struct cpuContext
     instruction* currentInstruction;
 
     bool halted; // Esta parada la ejecucion
+    bool halt_Bug; // flag que indica si ocurrio un halt bug
+
     bool stepping; // (?) los m-cycles que dura una ejecucion de instruccion (acumulado), me inspire en el chabon del tutubi
+    bool running; // indica si el gayboy (emulador) esta encendido
 
     bool int_master_enabled; // IME: Interrupt master enable flag [write only]. Interno al cpu, no se puede leer (osea no se carga en ningun registro ni memoria)
     bool activando_IME; // un Flag que indica que se tiene que activar la flag int_master_enabled, simulando una especie de delay
@@ -67,3 +71,4 @@ void cpu_init();
 void cpuRun();
 void cpuFetch();
 void cpuStep();
+void cpuHalted();

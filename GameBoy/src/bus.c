@@ -1,4 +1,4 @@
-#include "bus.h"
+#include <bus.h>
 // Abstraccion importante porque el cpu le escribe al bus, que es el que finalmente se encarga 
 // de "comunicarse" con el dispositivo correspondiente a la direccion accedida
 
@@ -26,13 +26,8 @@ u8 busRead(u16 addr)
             }
         }
     }
-    return -1;
-}
 
-u16 busRead16(u16 addr)
-{
-    // #define ext16bits(H,L) ((H << 8) | L);
-    return ext16bits(busRead(addr + 1), busRead(addr));
+    return -1;
 }
 
 void busWrite(u16 addr, u8 val)
@@ -59,10 +54,5 @@ void busWrite(u16 addr, u8 val)
             }
         }
     }
-}
 
-void busWrite16(u16 addr, u16 val)
-{
-    busWrite(addr, byteBajoDeWord(val));
-    busWrite(addr + 1, byteAltoDeWord(val));
 }
