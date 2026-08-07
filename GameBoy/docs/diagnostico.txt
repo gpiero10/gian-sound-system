@@ -1,0 +1,45 @@
+giansalcedo@giansalcedo-A320M-H:/media/giansalcedo/DiscoD/Proyectos/Gameboy Doctor/gameboy-doctor$ ./gameboy-doctor ../../GameBoy/testLog.txt  cpu_instrs 2
+============== ERROR ==============
+
+Mismatch in CPU state at line 151346:
+
+MINE:	A:04 F:C--- B:01 C:00 D:C7 E:BA H:90 L:00 SP:DFFD PC:C2C0 PCMEM:05,C2,B9,C1
+YOURS:	A:04 F:C--- B:01 C:00 D:C7 E:BA H:90 L:00 SP:DFFB PC:0050 PCMEM:3C,C9,00,00
+
+The CPU state before this (at line 151345) was:
+
+	A:04 F:10 B:01 C:00 D:C7 E:BA H:90 L:00 SP:DFFD PC:C2BE PCMEM:E0,0F,05,C2
+
+The last operation executed (in between lines 151345 and 151346) was:
+
+	0xE0 LDH (a8) A
+
+Perhaps the problem is with this opcode, or with your interrupt handling?
+
+Basicamente yo no volvi, el si. Osea yo atendi la interrupcion simplemente cambiando el pc a 0x50 que es el correspondiente al timer interrupt handler pero al parecer es mas que simplemente pushear el pc antiguo y devolver la ejecucion a cpu
+
+
+─── Source ─────────────────────────────────────────────────────────────────────────────────────────────
+ 153  {   
+ 154      executions = 0;
+ 155      while (cpu_ctx.running)
+ 156      {   
+ 157          executions++; testLog(); // debug
+ 158          if (executions == 151345) {alfaro();}
+ 159  
+ 160          cpuStep();  // Se ejecuta 1 instruccion
+ 161          emu_cycles(1);
+ 162  
+─── Stack ──────────────────────────────────────────────────────────────────────────────────────────────
+[0] from 0x0000555555557d98 in cpuRun+52 at src/cpu.c:158
+[1] from 0x000055555555c529 in run_EMU+18 at src/emu.c:11
+[2] from 0x000055555555c57c in main+80 at src/tests.c:26
+─── Threads ────────────────────────────────────────────────────────────────────────────────────────────
+[1] id 171047 name gbtest from 0x0000555555557d98 in cpuRun+52 at src/cpu.c:158
+─── Variables ──────────────────────────────────────────────────────────────────────────────────────────
+────────────────────────────────────────────────────────────────────────────────────────────────────────
+>>> print/x cpu_ctx.registers.pc
+$22 = 0x50
+>>> print executions 
+$23 = 151346
+

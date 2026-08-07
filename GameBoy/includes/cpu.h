@@ -55,8 +55,7 @@ typedef struct cpuContext
     bool running; // indica si el gayboy (emulador) esta encendido
 
     bool int_master_enabled; // IME: Interrupt master enable flag [write only]. Interno al cpu, no se puede leer (osea no se carga en ningun registro ni memoria)
-    bool activando_IME; // un Flag que indica que se tiene que activar la flag int_master_enabled, simulando una especie de delay
-    u8 delayPatriotico; // contador de instrucciones para delay EI
+    i8 activando_IME; // un Flag que indica que se tiene que activar la flag int_master_enabled, simulando una especie de delay
 } cpu_context;
 
 typedef void (*in_proc)(cpu_context*); // El tipo de las funciones processors
@@ -69,6 +68,7 @@ u8 getFlag(cpu_context* ctx, flag_t f);
 
 void cpu_init();
 void cpuRun();
+void eiDelayCheck();
 void cpuFetch();
 void cpuStep();
 void cpuHalted();

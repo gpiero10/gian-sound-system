@@ -50,8 +50,7 @@ void cpu_init()
 {
     memset(&cpu_ctx, 0, sizeof(cpu_context));
     cpu_ctx.halted = false;
-    cpu_ctx.activando_IME = false;
-    cpu_ctx.delayPatriotico = -1;
+    cpu_ctx.activando_IME = -1;
     cpu_ctx.int_master_enabled = false;
     cpu_ctx.running = true; // se prende la gayboy
 
@@ -89,7 +88,7 @@ void cpuStep()
     else
     {   
         cpu_ctx.cur_opcode = busRead(cpu_ctx.registers.pc++);
-        emu_cycles(1); // niggericious
+        emu_cycles(1);
 
         cpu_ctx.currentInstruction = CB_instruction_by_opcode(cpu_ctx.cur_opcode);
     }
@@ -153,27 +152,28 @@ void cpuRun()
     {   
         executions++; testLog(); // debug
 
+        eiDelayCheck();
+
         cpuStep();  // Se ejecuta 1 instruccion
         emu_cycles(1);
-
-        if (cpu_ctx.activando_IME) 
-        {
-            if (cpu_ctx.delayPatriotico == 0)
-            {
-                cpu_ctx.int_master_enabled = true;
-                cpu_ctx.activando_IME = false;
-            } else
-            {
-                cpu_ctx.delayPatriotico --;
-            }
-        }
 
         interruptCheck(&cpu_ctx); // se checkea interrupciones
 
         // Leer de port SC (Tests de Blargg)
         if (busRead(0xFF02) == 0x81) {putchar(busRead(0xFF01)); busWrite(0xFF02, 0);
         }
-        
-        
+    }
+}
+
+void eiDelayCheck()
+{
+    if (cpu_ctx.activando_IME == 1)
+    {
+        cpu_ctx.activando_IME--;
+    }
+    else if (cpu_ctx.activando_IME == 0)
+    {
+        cpu_ctx.int_master_enabled = true;
+        cpu_ctx.activando_IME--;
     }
 }
